@@ -101,6 +101,40 @@ export type Diagnosis = {
   };
 };
 
+export type ReplayCapability = "compare_only" | "full_rerun" | "checkpoint_replay";
+export type ReplayMode = "reexecute_safe_tools" | "reuse_prior_outputs" | "dry_run_side_effects";
+
+export type ReplayCapabilities = {
+  run_id: string;
+  adapter_id: string;
+  capabilities: Array<{ capability: ReplayCapability; available: boolean; reason: string }>;
+  checkpoints: Array<{ checkpoint_id: string; timestamp: string; state_reference: string | null }>;
+};
+
+export type RuntimeDiff = {
+  original_run_id: string;
+  comparison_run_id: string;
+  configuration: Array<{ field: string; original: unknown; comparison: unknown; changed: boolean }>;
+  execution: {
+    original_sequence: string[]; comparison_sequence: string[];
+    added_steps: Record<string, number>; removed_steps: Record<string, number>;
+    added_tools: Record<string, number>; removed_tools: Record<string, number>;
+    added_handoffs: Record<string, number>; removed_handoffs: Record<string, number>;
+    retry_delta: number; repeated_transition_delta: number;
+  };
+  outcomes: Array<{
+    metric: string; original: number | string | null; comparison: number | string | null;
+    delta: number | null; percent_change: number | null;
+    assessment: "improved" | "regressed" | "changed" | "unchanged";
+  }>;
+};
+
+export type ReplayRequest = {
+  id: string; status: string; resolved_capability: ReplayCapability;
+  status_reason: string | null; external_reference: string | null;
+  plan: { fallback_used: boolean; decisions: Array<{ label: string; action: string; reason: string; simulated: boolean }> };
+};
+
 const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
 
 export async function fetchRuns(signal?: AbortSignal): Promise<RunSummary[]> {
@@ -124,6 +158,29 @@ export async function fetchDiagnosis(runId: string, signal?: AbortSignal): Promi
   );
   if (!response.ok) throw new Error(`Diagnosis returned ${response.status}.`);
   return (await response.json()) as Diagnosis;
+}
+
+export async function fetchReplayCapabilities(runId: string, signal?: AbortSignal): Promise<ReplayCapabilities> {
+  const response = await fetch(`${API_URL}/api/v1/runs/${encodeURIComponent(runId)}/replay-capabilities`, { signal });
+  if (!response.ok) throw new Error(`Replay capabilities returned ${response.status}.`);
+  return (await response.json()) as ReplayCapabilities;
+}
+
+export async function fetchRuntimeDiff(original: string, comparison: string, signal?: AbortSignal): Promise<RuntimeDiff> {
+  const query = new URLSearchParams({ original_run_id: original, comparison_run_id: comparison });
+  const response = await fetch(`${API_URL}/api/v1/runtime-diff?${query}`, { signal });
+  if (!response.ok) throw new Error(`Runtime Diff returned ${response.status}.`);
+  return (await response.json()) as RuntimeDiff;
+}
+
+export async function createReplayRequest(sourceRunId: string, mode: ReplayMode): Promise<ReplayRequest> {
+  const response = await fetch(`${API_URL}/api/v1/replays`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ source_run_id: sourceRunId, mode, capability: "full_rerun" }),
+  });
+  if (!response.ok) throw new Error(`Replay planning returned ${response.status}.`);
+  return (await response.json()) as ReplayRequest;
 }
 
 export function formatDuration(milliseconds: number): string {

@@ -4,10 +4,11 @@ Framework-agnostic debugging and control plane for production AI agents.
 
 > Debug the decisions, not just the code.
 
-This repository contains the Milestone 4 foundation: a FastAPI modular monolith,
+This repository contains the Milestone 5 foundation: a FastAPI modular monolith,
 PostgreSQL application-state schema, OpenTelemetry Collector, OTLP trace ingestion,
 Bronze/Silver telemetry contracts, Gold run projections, directed execution graphs,
-derived metrics, evidence-first rule/statistical diagnosis, and a Next.js run-debugging UI. The architecture
+derived metrics, evidence-first diagnosis, safe replay planning, Runtime Diff, and a Next.js
+run-debugging UI. The architecture
 contract remains authoritative in [`docs/architecture.md`](docs/architecture.md).
 
 ## Repository layout
@@ -44,6 +45,8 @@ adapter boundary described in [`docs/telemetry-pipeline.md`](docs/telemetry-pipe
 and [`docs/runs-graph.md`](docs/runs-graph.md).
 The analysis contract is documented in
 [`docs/analysis-diagnosis.md`](docs/analysis-diagnosis.md).
+Replay safety and deterministic comparison are documented in
+[`docs/replay-diff.md`](docs/replay-diff.md).
 
 ### Run services directly
 
@@ -74,8 +77,7 @@ cd frontend && npm run lint && npm run typecheck && npm run build
 
 ## Milestone boundaries
 
-Milestone 4 implements deterministic rules, transparent statistical baselines,
-grounded diagnosis, and advisory UI findings. It does not implement ML detection,
-during-run analysis, replay execution, Runtime Diff, policy evaluation, approval
-orchestration, or automatic remediation. Those remain ordered in `prompts/05` and
-`06`.
+Milestone 5 adds persisted replay plans, optional framework-adapter boundaries, semantic
+checkpoints, side-effect-safe tool decisions, and deterministic configuration/execution/outcome
+comparison. The generic adapter does not execute agent workflows. Policy evaluation, approval
+orchestration, live blocking, and automatic remediation remain outside this milestone.

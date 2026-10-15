@@ -69,6 +69,25 @@ _SEMANTIC_ALIASES = {
         "to_agent": ("agent.runtime.handoff.to_agent", "handoff.to_agent", "to_agent"),
         "reason": ("agent.runtime.handoff.reason", "handoff.reason", "reason"),
     },
+    "CHECKPOINT": {
+        "checkpoint_name": (
+            "agent.runtime.checkpoint.name",
+            "checkpoint.name",
+            "checkpoint_name",
+        ),
+        "checkpoint_ref": (
+            "agent.runtime.checkpoint.ref",
+            "checkpoint.ref",
+            "checkpoint_ref",
+        ),
+        "replay_capability": (
+            "agent.runtime.checkpoint.replay_capability",
+            "checkpoint.replay_capability",
+            "replay_capability",
+        ),
+        "input_ref": ("agent.runtime.checkpoint.input_ref", "checkpoint.input_ref"),
+        "output_ref": ("agent.runtime.checkpoint.output_ref", "checkpoint.output_ref"),
+    },
     "ERROR": {
         "error_type": ("error.type", "exception.type", "error_type"),
         "message_safe": ("agent.runtime.error.message_safe", "error.message_safe", "message_safe"),
@@ -100,9 +119,7 @@ class SemanticNormalizer:
         is_out_of_order = previous_watermark is not None and start_nanos < previous_watermark
         self._trace_watermarks[record.trace_id] = max(previous_watermark or 0, start_nanos)
 
-        common = {
-            field: _first(attributes, aliases) for field, aliases in _COMMON_ALIASES.items()
-        }
+        common = {field: _first(attributes, aliases) for field, aliases in _COMMON_ALIASES.items()}
         semantic = {
             field: value
             for field, aliases in _SEMANTIC_ALIASES.get(event_type, {}).items()
@@ -149,4 +166,3 @@ def _first(attributes: dict[str, Any], aliases: tuple[str, ...]) -> Any:
         if value is not None:
             return value
     return None
-

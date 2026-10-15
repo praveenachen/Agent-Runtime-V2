@@ -6,7 +6,6 @@ const sections: Record<string, { title: string; description: string }> = {
   runs: { title: "Runs", description: "Execution history and graph inspection arrive in Milestone 3." },
   policies: { title: "Policies", description: "Deterministic runtime guardrails arrive in Milestone 6." },
   approvals: { title: "Approvals", description: "Human review workflows arrive in Milestone 6." },
-  compare: { title: "Compare", description: "Runtime Diff and debugging replay arrive in Milestone 5." },
   settings: { title: "Settings", description: "Project and integration settings will grow with each milestone." },
 };
 

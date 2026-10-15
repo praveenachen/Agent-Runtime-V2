@@ -6,6 +6,14 @@ from agent_runtime.analysis.explainers import DiagnosisExplainer
 from agent_runtime.analysis.service import AnalysisService
 from agent_runtime.api.router import api_router
 from agent_runtime.config import Settings, get_settings
+from agent_runtime.db.session import create_database_engine, create_session_factory
+from agent_runtime.replay.ports import (
+    FrameworkReplayAdapter,
+    GenericReplayAdapter,
+    ReplayRequestRepository,
+)
+from agent_runtime.replay.repository import SqlAlchemyReplayRequestRepository
+from agent_runtime.replay.service import ReplayService
 from agent_runtime.runs.service import RunService
 from agent_runtime.telemetry.factory import create_telemetry_store
 from agent_runtime.telemetry.ports import TelemetryAnalyticsStore
@@ -16,6 +24,8 @@ def create_app(
     settings: Settings | None = None,
     telemetry_store: TelemetryAnalyticsStore | None = None,
     diagnosis_explainer: DiagnosisExplainer | None = None,
+    replay_repository: ReplayRequestRepository | None = None,
+    replay_adapter: FrameworkReplayAdapter | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     application = FastAPI(
@@ -33,6 +43,14 @@ def create_app(
         application.state.telemetry_store,
         baseline_projector=application.state.analysis_service,
     )
+    if replay_repository is None:
+        engine = create_database_engine(resolved_settings)
+        replay_repository = SqlAlchemyReplayRequestRepository(create_session_factory(engine))
+    application.state.replay_service = ReplayService(
+        application.state.run_service,
+        replay_repository,
+        replay_adapter or GenericReplayAdapter(),
+    )
     application.state.telemetry_ingestion = TelemetryIngestionService(
         application.state.telemetry_store,
         late_after_seconds=resolved_settings.telemetry_late_after_seconds,
@@ -41,7 +59,7 @@ def create_app(
     application.add_middleware(
         CORSMiddleware,
         allow_origins=list(resolved_settings.cors_origins),
-        allow_methods=["GET"],
+        allow_methods=["GET", "POST"],
         allow_headers=["*"],
     )
     application.include_router(api_router, prefix=resolved_settings.api_prefix)

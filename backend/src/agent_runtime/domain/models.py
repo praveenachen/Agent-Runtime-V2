@@ -17,6 +17,8 @@ class PolicyAction(StrEnum):
 
 class ReplayStatus(StrEnum):
     PENDING = "pending"
+    PLANNED = "planned"
+    BLOCKED = "blocked"
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
@@ -27,6 +29,12 @@ class ReplayMode(StrEnum):
     REEXECUTE_SAFE_TOOLS = "reexecute_safe_tools"
     REUSE_PRIOR_OUTPUTS = "reuse_prior_outputs"
     DRY_RUN_SIDE_EFFECTS = "dry_run_side_effects"
+
+
+class ReplayCapability(StrEnum):
+    COMPARE_ONLY = "compare_only"
+    FULL_RERUN = "full_rerun"
+    CHECKPOINT_REPLAY = "checkpoint_replay"
 
 
 class ApprovalState(StrEnum):
@@ -78,7 +86,7 @@ class Policy(IdentityMixin, TimestampMixin, Base):
 class ReplayRequest(IdentityMixin, TimestampMixin, Base):
     __tablename__ = "replay_requests"
 
-    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id"), nullable=False)
+    project_id: Mapped[UUID | None] = mapped_column(ForeignKey("projects.id"), nullable=True)
     source_run_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     mode: Mapped[ReplayMode] = mapped_column(
         Enum(ReplayMode, native_enum=False, length=32), nullable=False
@@ -87,6 +95,22 @@ class ReplayRequest(IdentityMixin, TimestampMixin, Base):
         Enum(ReplayStatus, native_enum=False, length=16), default=ReplayStatus.PENDING
     )
     requested_changes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    requested_capability: Mapped[ReplayCapability] = mapped_column(
+        Enum(ReplayCapability, native_enum=False, length=32),
+        default=ReplayCapability.FULL_RERUN,
+        nullable=False,
+    )
+    resolved_capability: Mapped[ReplayCapability] = mapped_column(
+        Enum(ReplayCapability, native_enum=False, length=32),
+        default=ReplayCapability.COMPARE_ONLY,
+        nullable=False,
+    )
+    checkpoint_id: Mapped[str | None] = mapped_column(String(200))
+    adapter_id: Mapped[str] = mapped_column(String(100), default="generic", nullable=False)
+    plan: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    output_run_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    external_reference: Mapped[str | None] = mapped_column(String(200))
+    status_reason: Mapped[str | None] = mapped_column(Text)
 
 
 class Approval(IdentityMixin, TimestampMixin, Base):
@@ -101,4 +125,3 @@ class Approval(IdentityMixin, TimestampMixin, Base):
     action_summary: Mapped[str] = mapped_column(Text, nullable=False)
     context: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     reviewer_reference: Mapped[str | None] = mapped_column(String(200))
-
