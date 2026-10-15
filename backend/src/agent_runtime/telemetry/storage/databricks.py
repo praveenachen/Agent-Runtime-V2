@@ -3,11 +3,13 @@ import re
 from collections.abc import Sequence
 from typing import Any, Protocol
 
+from agent_runtime.runs.models import RunRecord
 from agent_runtime.telemetry.ports import AppendResult
 from agent_runtime.telemetry.records import BronzeSpanRecord, SilverEvent
 
 BRONZE_TABLE_NAME = "bronze_agent_spans"
 SILVER_TABLE_NAME = "silver_agent_events"
+GOLD_RUNS_TABLE_NAME = "gold_runs"
 
 BRONZE_DELTA_COLUMNS = {
     "record_id": "STRING",
@@ -37,6 +39,17 @@ SILVER_DELTA_COLUMNS = {
     "event_json": "STRING",
 }
 
+GOLD_RUNS_DELTA_COLUMNS = {
+    "run_id": "STRING",
+    "trace_id": "STRING",
+    "started_at": "TIMESTAMP",
+    "ended_at": "TIMESTAMP",
+    "status": "STRING",
+    "workflow_name": "STRING",
+    "environment": "STRING",
+    "run_json": "STRING",
+}
+
 
 class DatabricksMergeWriter(Protocol):
     """Connector seam for Delta MERGE operations using the stable record ID."""
@@ -49,6 +62,13 @@ class DatabricksMergeWriter(Protocol):
         key_column: str,
     ) -> AppendResult: ...
 
+    async def query_records(
+        self,
+        table: str,
+        *,
+        trace_ids: Sequence[str] | None = None,
+    ) -> Sequence[dict[str, Any]]: ...
+
 
 class DatabricksTelemetryStore:
     """Production Delta adapter independent of a specific Databricks client SDK."""
@@ -57,6 +77,7 @@ class DatabricksTelemetryStore:
         self._writer = writer
         self._bronze_table = _table_reference(catalog, schema, BRONZE_TABLE_NAME)
         self._silver_table = _table_reference(catalog, schema, SILVER_TABLE_NAME)
+        self._gold_runs_table = _table_reference(catalog, schema, GOLD_RUNS_TABLE_NAME)
 
     async def append_bronze(self, records: Sequence[BronzeSpanRecord]) -> AppendResult:
         return await self._writer.merge_records(
@@ -71,6 +92,25 @@ class DatabricksTelemetryStore:
             [_silver_row(record) for record in records],
             key_column="event_id",
         )
+
+    async def query_silver(self, trace_ids: Sequence[str] | None = None) -> list[SilverEvent]:
+        rows = await self._writer.query_records(self._silver_table, trace_ids=trace_ids)
+        return [SilverEvent(**json.loads(row["event_json"])) for row in rows]
+
+    async def upsert_gold_runs(self, records: Sequence[RunRecord]) -> AppendResult:
+        return await self._writer.merge_records(
+            self._gold_runs_table,
+            [_gold_run_row(record) for record in records],
+            key_column="run_id",
+        )
+
+    async def list_gold_runs(self) -> list[RunRecord]:
+        rows = await self._writer.query_records(self._gold_runs_table)
+        return [RunRecord.from_dict(json.loads(row["run_json"])) for row in rows]
+
+    async def get_gold_run(self, run_id: str) -> RunRecord | None:
+        rows = await self._writer.query_records(self._gold_runs_table, trace_ids=[run_id])
+        return RunRecord.from_dict(json.loads(rows[0]["run_json"])) if rows else None
 
 
 def _table_reference(catalog: str, schema: str, table: str) -> str:
@@ -113,3 +153,15 @@ def _silver_row(record: SilverEvent) -> dict[str, Any]:
         "event_json": json.dumps(record.to_dict(), separators=(",", ":"), sort_keys=True),
     }
 
+
+def _gold_run_row(record: RunRecord) -> dict[str, Any]:
+    return {
+        "run_id": record.run_id,
+        "trace_id": record.trace_id,
+        "started_at": record.started_at,
+        "ended_at": record.ended_at,
+        "status": record.status,
+        "workflow_name": record.workflow_name,
+        "environment": record.environment,
+        "run_json": json.dumps(record.to_dict(), separators=(",", ":"), sort_keys=True),
+    }

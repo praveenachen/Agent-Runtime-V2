@@ -1,8 +1,11 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from agent_runtime.telemetry.records import BronzeSpanRecord, SilverEvent
+
+if TYPE_CHECKING:
+    from agent_runtime.runs.models import RunRecord
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,3 +25,10 @@ class TelemetryAnalyticsStore(Protocol):
 
     async def append_silver(self, records: Sequence[SilverEvent]) -> AppendResult: ...
 
+    async def query_silver(self, trace_ids: Sequence[str] | None = None) -> list[SilverEvent]: ...
+
+    async def upsert_gold_runs(self, records: Sequence["RunRecord"]) -> AppendResult: ...
+
+    async def list_gold_runs(self) -> list["RunRecord"]: ...
+
+    async def get_gold_run(self, run_id: str) -> "RunRecord | None": ...

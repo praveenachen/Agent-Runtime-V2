@@ -4,9 +4,10 @@ Framework-agnostic debugging and control plane for production AI agents.
 
 > Debug the decisions, not just the code.
 
-This repository contains the Milestone 2 foundation: a FastAPI modular monolith,
+This repository contains the Milestone 3 foundation: a FastAPI modular monolith,
 PostgreSQL application-state schema, OpenTelemetry Collector, OTLP trace ingestion,
-Bronze/Silver telemetry contracts, and a Next.js dashboard shell. The architecture
+Bronze/Silver telemetry contracts, Gold run projections, directed execution graphs,
+derived metrics, and a Next.js run-debugging UI. The architecture
 contract remains authoritative in [`docs/architecture.md`](docs/architecture.md).
 
 ## Repository layout
@@ -38,8 +39,9 @@ docker compose exec backend alembic upgrade head
 - Agent Runtime OTLP/HTTP endpoint: `POST /api/v1/telemetry/otlp/v1/traces`
 
 Local telemetry is written to the `telemetry-data` volume as redacted Bronze and
-normalized Silver JSONL. Production uses the Databricks adapter boundary described
-in [`docs/telemetry-pipeline.md`](docs/telemetry-pipeline.md).
+normalized Silver JSONL plus derived Gold run JSONL. Production uses the Databricks
+adapter boundary described in [`docs/telemetry-pipeline.md`](docs/telemetry-pipeline.md)
+and [`docs/runs-graph.md`](docs/runs-graph.md).
 
 ### Run services directly
 
@@ -70,7 +72,7 @@ cd frontend && npm run lint && npm run typecheck && npm run build
 
 ## Milestone boundaries
 
-Milestone 2 implements OTLP ingestion plus Bronze/Silver normalization. It does not
-implement Gold data, execution graphs, run metrics, diagnosis, replay execution,
+Milestone 3 implements run aggregation, execution graphs, Gold metrics, and core run
+inspection. It does not implement diagnosis, anomaly baselines, replay execution,
 Runtime Diff, policy evaluation, or approval orchestration. Those remain ordered in
-`prompts/03` through `06`.
+`prompts/04` through `06`.

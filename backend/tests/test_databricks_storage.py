@@ -4,8 +4,9 @@ from datetime import UTC, datetime
 
 import pytest
 
+from agent_runtime.runs.service import build_run
 from agent_runtime.telemetry.ports import AppendResult
-from agent_runtime.telemetry.records import BronzeSpanRecord
+from agent_runtime.telemetry.records import BronzeSpanRecord, SilverEvent
 from agent_runtime.telemetry.storage.databricks import DatabricksTelemetryStore
 
 
@@ -50,3 +51,31 @@ def test_databricks_adapter_rejects_unsafe_table_identifiers() -> None:
             catalog="agent-runtime;drop",
             schema="telemetry",
         )
+
+
+def test_databricks_adapter_emits_gold_run_merge_contract() -> None:
+    writer = RecordingMergeWriter()
+    store = DatabricksTelemetryStore(writer, catalog="agent_runtime", schema="telemetry")
+    event = SilverEvent(
+        event_id="trace:run",
+        trace_id="trace",
+        span_id="run",
+        parent_span_id=None,
+        timestamp=datetime.now(UTC).isoformat(),
+        duration_ms=10,
+        status="OK",
+        event_type="RUN",
+        ingested_at=datetime.now(UTC).isoformat(),
+        observed_lag_ms=0,
+        is_late=False,
+        is_out_of_order=False,
+        workflow_name="support",
+    )
+
+    result = asyncio.run(store.upsert_gold_runs([build_run([event])]))
+
+    table, rows, key_column = writer.calls[0]
+    assert table == "agent_runtime.telemetry.gold_runs"
+    assert key_column == "run_id"
+    assert result.accepted_ids == ("trace",)
+    assert json.loads(rows[0]["run_json"])["metrics"]["step_count"] == 0

@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     telemetry_local_path: Path = Path(".data/telemetry")
     telemetry_max_request_bytes: int = 10 * 1024 * 1024
     telemetry_late_after_seconds: int = 300
+    cors_origins: tuple[str, ...] = ("http://localhost:3000",)
 
     databricks_enabled: bool = False
     databricks_host: str | None = None
@@ -55,4 +56,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-

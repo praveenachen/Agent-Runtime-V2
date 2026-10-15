@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+from agent_runtime.runs.models import RunRecord
 from agent_runtime.telemetry.ports import AppendResult
 from agent_runtime.telemetry.records import BronzeSpanRecord, SilverEvent
 
@@ -15,8 +16,10 @@ class LocalJsonlTelemetryStore:
         self._root = root
         self._bronze_path = root / "bronze-spans.jsonl"
         self._silver_path = root / "silver-events.jsonl"
+        self._gold_path = root / "gold-runs.jsonl"
         self._bronze_ids = _load_ids(self._bronze_path, "record_id")
         self._silver_ids = _load_ids(self._silver_path, "event_id")
+        self._gold_runs = _load_gold_runs(self._gold_path)
         self._lock = asyncio.Lock()
 
     async def append_bronze(self, records: Sequence[BronzeSpanRecord]) -> AppendResult:
@@ -24,6 +27,26 @@ class LocalJsonlTelemetryStore:
 
     async def append_silver(self, records: Sequence[SilverEvent]) -> AppendResult:
         return await self._append(self._silver_path, self._silver_ids, records, "event_id")
+
+    async def query_silver(self, trace_ids: Sequence[str] | None = None) -> list[SilverEvent]:
+        selected = set(trace_ids) if trace_ids is not None else None
+        return await asyncio.to_thread(_load_silver, self._silver_path, selected)
+
+    async def upsert_gold_runs(self, records: Sequence[RunRecord]) -> AppendResult:
+        async with self._lock:
+            accepted: list[str] = []
+            duplicates: list[str] = []
+            for record in records:
+                (duplicates if record.run_id in self._gold_runs else accepted).append(record.run_id)
+                self._gold_runs[record.run_id] = record
+            await asyncio.to_thread(_write_gold_snapshot, self._gold_path, self._gold_runs)
+            return AppendResult(tuple(accepted), tuple(duplicates))
+
+    async def list_gold_runs(self) -> list[RunRecord]:
+        return list(self._gold_runs.values())
+
+    async def get_gold_run(self, run_id: str) -> RunRecord | None:
+        return self._gold_runs.get(run_id)
 
     async def _append(
         self,
@@ -71,3 +94,38 @@ def _load_ids(path: Path, id_field: str) -> set[str]:
                 identifiers.add(str(payload[id_field]))
     return identifiers
 
+
+def _load_silver(path: Path, trace_ids: set[str] | None) -> list[SilverEvent]:
+    if not path.exists():
+        return []
+    events: list[SilverEvent] = []
+    with path.open(encoding="utf-8") as source:
+        for line in source:
+            if not line.strip():
+                continue
+            payload = json.loads(line)
+            if trace_ids is None or payload["trace_id"] in trace_ids:
+                events.append(SilverEvent(**payload))
+    return events
+
+
+def _load_gold_runs(path: Path) -> dict[str, RunRecord]:
+    if not path.exists():
+        return {}
+    records: dict[str, RunRecord] = {}
+    with path.open(encoding="utf-8") as source:
+        for line in source:
+            if line.strip():
+                record = RunRecord.from_dict(json.loads(line))
+                records[record.run_id] = record
+    return records
+
+
+def _write_gold_snapshot(path: Path, records: dict[str, RunRecord]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".tmp")
+    with temporary.open("w", encoding="utf-8", newline="\n") as output:
+        for record in sorted(records.values(), key=lambda item: item.run_id):
+            output.write(json.dumps(record.to_dict(), separators=(",", ":"), sort_keys=True))
+            output.write("\n")
+    temporary.replace(path)
