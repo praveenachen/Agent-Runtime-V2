@@ -1,8 +1,20 @@
+from datetime import datetime
 from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import JSON, Boolean, Enum, ForeignKey, Index, String, Text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from agent_runtime.db.base import Base, IdentityMixin, TimestampMixin
@@ -75,7 +87,9 @@ class Policy(IdentityMixin, TimestampMixin, Base):
 
     project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id"), nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
     active: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    priority: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     action: Mapped[PolicyAction] = mapped_column(
         Enum(PolicyAction, native_enum=False, length=32), nullable=False
     )
@@ -125,3 +139,40 @@ class Approval(IdentityMixin, TimestampMixin, Base):
     action_summary: Mapped[str] = mapped_column(Text, nullable=False)
     context: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     reviewer_reference: Mapped[str | None] = mapped_column(String(200))
+    workflow_name: Mapped[str | None] = mapped_column(String(200))
+    agent_name: Mapped[str | None] = mapped_column(String(200))
+    tool_name: Mapped[str | None] = mapped_column(String(200))
+    operation: Mapped[str | None] = mapped_column(String(200))
+    confidence: Mapped[float | None] = mapped_column(Float)
+    proposed_inputs: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    match_reason: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    integration_reference: Mapped[str | None] = mapped_column(String(200))
+
+
+class PolicyDecision(IdentityMixin, TimestampMixin, Base):
+    __tablename__ = "policy_decisions"
+
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id"), nullable=False)
+    run_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    action: Mapped[PolicyAction] = mapped_column(
+        Enum(PolicyAction, native_enum=False, length=32), nullable=False
+    )
+    matched_policy_ids: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    context: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    evaluation_failed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    decision_made: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    failure_behavior: Mapped[str | None] = mapped_column(String(32))
+
+
+class ApprovalAuditEvent(IdentityMixin, Base):
+    __tablename__ = "approval_audit_events"
+
+    approval_id: Mapped[UUID] = mapped_column(
+        ForeignKey("approvals.id"), nullable=False, index=True
+    )
+    event_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    actor_reference: Mapped[str | None] = mapped_column(String(200))
+    details: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

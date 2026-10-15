@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { Icon } from "@/components/ui/icon";
 import {
   createReplayRequest,
   fetchReplayCapabilities,
@@ -37,8 +38,10 @@ export function RuntimeCompare() {
     const controller = new AbortController();
     fetchRuns(controller.signal).then((items) => {
       setRuns(items);
-      setOriginal(items[0]?.run_id ?? "");
-      setComparison(items[1]?.run_id ?? "");
+      const requested = new URLSearchParams(window.location.search).get("original");
+      const source = items.some((item) => item.run_id === requested) ? requested! : items[0]?.run_id ?? "";
+      setOriginal(source);
+      setComparison(items.find((item) => item.run_id !== source)?.run_id ?? "");
     }).catch((reason: Error) => setError(reason.message)).finally(() => setLoading(false));
     return () => controller.abort();
   }, []);
@@ -76,7 +79,7 @@ export function RuntimeCompare() {
     <main className="page-stack compare-page">
       <header className="page-heading">
         <div><p className="eyebrow">Debugging replay</p><h1>Runtime Diff</h1><p>Compare completed behavior, then prepare a safety-reviewed replay plan.</p></div>
-        <span className="safety-note">Side effects default safe</span>
+        <span className="safety-note"><Icon name="shield" /> Side effects default safe</span>
       </header>
 
       <section className="compare-selectors" aria-label="Runs to compare">
@@ -87,7 +90,7 @@ export function RuntimeCompare() {
 
       {error && <div className="state-panel compact"><span className="state-icon danger">!</span><h2>Could not load comparison</h2><p>{error}</p></div>}
       {!error && loading && <div className="skeleton-stack"><div className="skeleton-metrics" /><div className="skeleton-graph" /></div>}
-      {!error && !loading && runs.length < 2 && <div className="state-panel"><span className="state-icon">↔</span><h2>Two completed runs are needed</h2><p>Runtime Diff uses real Gold run records and does not manufacture comparison data.</p></div>}
+      {!error && !loading && runs.length < 2 && <div className="state-panel"><span className="state-icon"><Icon name="compare" /></span><h2>Two completed runs are needed</h2><p>Runtime Diff uses real Gold run records and does not manufacture comparison data.</p></div>}
       {!error && !loading && diff && <DiffView diff={diff} />}
 
       {original && <section className="replay-workbench">
@@ -108,7 +111,7 @@ function RunSelect({ label: title, value, runs, onChange }: { label: string; val
 function DiffView({ diff }: { diff: RuntimeDiff }) {
   return <div className="diff-stack">
     <section className="diff-card"><div className="section-heading"><div><p className="eyebrow">Configuration</p><h2>What changed</h2></div></div><div className="config-diff">{diff.configuration.map((item) => <div className={item.changed ? "changed" : ""} key={item.field}><strong>{label(item.field)}</strong><span>{display(item.original)}</span><i>→</i><span>{display(item.comparison)}</span></div>)}</div></section>
-    <section className="diff-card"><div className="section-heading"><div><p className="eyebrow">Execution</p><h2>Before and after paths</h2></div><div className="delta-pills"><span>Retries {signed(diff.execution.retry_delta)}</span><span>Loops {signed(diff.execution.repeated_transition_delta)}</span></div></div><div className="path-compare"><Path title="Original" values={diff.execution.original_sequence} tone="removed" /><Path title="Comparison" values={diff.execution.comparison_sequence} tone="added" /></div><div className="structural-deltas"><Delta title="Added" values={diff.execution.added_steps} /><Delta title="Removed" values={diff.execution.removed_steps} /></div></section>
+    <section className="diff-card"><div className="section-heading"><div><p className="eyebrow">Execution</p><h2>Before and after paths</h2></div><div className="delta-pills"><span>Retries {signed(diff.execution.retry_delta)}</span><span>Loops {signed(diff.execution.repeated_transition_delta)}</span></div></div><div className="path-compare"><Path title="Original" values={diff.execution.original_sequence} tone="removed" /><Path title="Comparison" values={diff.execution.comparison_sequence} tone="added" /></div><div className="structural-deltas"><Delta title="Added steps" values={diff.execution.added_steps} /><Delta title="Removed steps" values={diff.execution.removed_steps} /><Delta title="Added tools" values={diff.execution.added_tools} /><Delta title="Removed tools" values={diff.execution.removed_tools} /><Delta title="Added handoffs" values={diff.execution.added_handoffs} /><Delta title="Removed handoffs" values={diff.execution.removed_handoffs} /></div></section>
     <section className="diff-card"><div className="section-heading"><div><p className="eyebrow">Outcomes</p><h2>Metric movement</h2></div></div><div className="outcome-grid">{diff.outcomes.map((item) => <div className={`outcome ${item.assessment}`} key={item.metric}><span>{label(item.metric)}</span><strong>{metric(item.metric, item.original)} → {metric(item.metric, item.comparison)}</strong><small>{item.assessment}{item.percent_change === null ? "" : ` · ${signed(item.percent_change)}%`}</small></div>)}</div></section>
   </div>;
 }

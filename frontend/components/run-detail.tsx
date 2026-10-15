@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { RunStatus } from "@/components/run-status";
 import { DiagnosisPanel } from "@/components/diagnosis-panel";
+import { Icon } from "@/components/ui/icon";
 import {
   fetchRun,
   formatDuration,
@@ -41,7 +42,7 @@ export function RunDetail({ runId }: { runId: string }) {
 
   const run = state.run;
   return <>
-    <header className="run-detail-heading"><div><Link className="back-link" href="/runs">← Runs</Link><div className="heading-line"><h1>{run.name}</h1><RunStatus status={run.status} /></div><p className="run-id mono">{run.run_id}</p></div><div className="run-context"><span>{run.workflow_name ?? "Unknown workflow"}</span><span>{run.workflow_version ?? "No version"}</span><span>{run.environment ?? "Unknown environment"}</span></div></header>
+    <header className="run-detail-heading"><div><Link className="back-link" href="/runs">← Runs</Link><div className="heading-line"><h1>{run.name}</h1><RunStatus status={run.status} /></div><p className="run-id mono">{run.run_id}</p></div><div className="run-heading-side"><div className="run-actions"><Link className="button-ghost" href={`/compare?original=${encodeURIComponent(run.run_id)}`}><Icon name="compare" /> Compare</Link><a className="button-ghost" href="#raw-events"><Icon name="activity" /> Raw events</a></div><div className="run-context"><span>{run.workflow_name ?? "Unknown workflow"}</span><span>{run.workflow_version ?? "No version"}</span><span>{run.environment ?? "Unknown environment"}</span></div></div></header>
     <section className="detail-metrics" aria-label="Run metrics">
       <CompactMetric label="Duration" value={formatDuration(run.metrics.total_duration_ms)} />
       <CompactMetric label="Steps" value={String(run.metrics.step_count)} />
@@ -52,11 +53,12 @@ export function RunDetail({ runId }: { runId: string }) {
     </section>
     <ExecutionGraph nodes={run.graph.nodes} edges={run.graph.edges} />
     <div className="detail-grid"><Timeline run={run} /><DiagnosisPanel runId={run.run_id} /></div>
-    <details className="raw-panel"><summary><span>Raw normalized events</span><small>{run.events.length} Silver records</small></summary><pre>{JSON.stringify(run.events, null, 2)}</pre></details>
+    <details className="raw-panel" id="raw-events"><summary><span>Raw normalized events</span><small>{run.events.length} Silver records · secondary detail</small></summary><pre>{JSON.stringify(run.events, null, 2)}</pre></details>
   </>;
 }
 
 function ExecutionGraph({ nodes, edges }: { nodes: GraphNode[]; edges: GraphEdge[] }) {
+  const [selectedId, setSelectedId] = useState(nodes[0]?.id ?? "");
   const columns = useMemo(() => {
     const grouped = new Map<number, GraphNode[]>();
     nodes.forEach((node) => grouped.set(node.depth, [...(grouped.get(node.depth) ?? []), node]));
@@ -64,9 +66,10 @@ function ExecutionGraph({ nodes, edges }: { nodes: GraphNode[]; edges: GraphEdge
   }, [nodes]);
   const semanticEdges = edges.filter((edge) => edge.type !== "parent_child");
   const incoming = (node: GraphNode) => edges.filter((edge) => edge.target === node.id);
+  const selected = nodes.find((node) => node.id === selectedId) ?? nodes[0];
   return <section className="graph-card">
-    <header className="section-heading"><div><p className="eyebrow">Execution graph</p><h2>Trace topology</h2></div><div className="graph-legend"><span><i className="legend-line" /> parent</span><span><i className="legend-line semantic" /> semantic</span><span><i className="legend-dot" /> concurrent</span></div></header>
-    <div className="graph-scroll"><div className="graph-stage" style={{ gridTemplateColumns: `repeat(${Math.max(columns.length, 1)}, minmax(190px, 1fr))` }}>{columns.map(([depth, column]) => <div className="graph-column" key={depth}><span className="column-label">Depth {depth}</span>{column.sort((a, b) => a.lane - b.lane).map((node) => <article className={`graph-node node-${node.event_type.toLowerCase()}`} key={node.id}><div className="node-topline"><span>{node.event_type.replaceAll("_", " ")}</span><span>{formatDuration(node.duration_ms)}</span></div><strong>{node.label}</strong><small>{node.agent_name ?? "runtime"}</small><div className="node-flags">{node.is_concurrent && <span>parallel</span>}{incoming(node).filter((edge) => edge.type !== "parent_child").map((edge) => <span className="semantic-flag" key={edge.id}>{edge.type.replaceAll("_", " ")}</span>)}</div></article>)}</div>)}</div></div>
+    <header className="section-heading"><div><p className="eyebrow">Execution graph</p><h2>Trace topology</h2><p className="section-copy">Select a node to inspect its measured execution context.</p></div><div className="graph-legend"><span><i className="legend-line" /> parent</span><span><i className="legend-line semantic" /> semantic</span><span><i className="legend-dot" /> concurrent</span></div></header>
+    <div className="graph-workspace"><div className="graph-scroll"><div className="graph-stage" style={{ gridTemplateColumns: `repeat(${Math.max(columns.length, 1)}, minmax(190px, 1fr))` }}>{columns.map(([depth, column]) => <div className="graph-column" key={depth}><span className="column-label">Depth {depth}</span>{column.sort((a, b) => a.lane - b.lane).map((node) => <button aria-pressed={selected?.id === node.id} className={`graph-node node-${node.event_type.toLowerCase()} ${selected?.id === node.id ? "selected" : ""}`} key={node.id} onClick={() => setSelectedId(node.id)} type="button"><div className="node-topline"><span>{node.event_type.replaceAll("_", " ")}</span><span>{formatDuration(node.duration_ms)}</span></div><strong>{node.label}</strong><small>{node.agent_name ?? "runtime"}</small><div className="node-flags">{node.is_concurrent && <span>parallel</span>}{incoming(node).filter((edge) => edge.type !== "parent_child").map((edge) => <span className="semantic-flag" key={edge.id}>{edge.type.replaceAll("_", " ")}</span>)}</div></button>)}</div>)}</div></div>{selected && <aside className="node-inspector"><span className="inspector-kicker">Selected node</span><h3>{selected.label}</h3><p>{selected.event_type.replaceAll("_", " ")} · {selected.status}</p><dl><div><dt>Duration</dt><dd>{formatDuration(selected.duration_ms)}</dd></div><div><dt>Agent</dt><dd>{selected.agent_name ?? "Runtime"}</dd></div><div><dt>Span</dt><dd>{selected.span_id.slice(0, 12)}</dd></div><div><dt>Depth / lane</dt><dd>{selected.depth} / {selected.lane}</dd></div></dl>{selected.is_concurrent && <span className="inspector-note">Runs concurrently with another span</span>}</aside>}</div>
     {semanticEdges.length > 0 && <footer className="edge-summary">{semanticEdges.map((edge) => <span key={edge.id}>{edge.type.replaceAll("_", " ")}: <b>{shortId(edge.source)}</b> → <b>{shortId(edge.target)}</b></span>)}</footer>}
   </section>;
 }

@@ -4,11 +4,11 @@ Framework-agnostic debugging and control plane for production AI agents.
 
 > Debug the decisions, not just the code.
 
-This repository contains the Milestone 5 foundation: a FastAPI modular monolith,
+This repository contains the Milestone 6 core architecture: a FastAPI modular monolith,
 PostgreSQL application-state schema, OpenTelemetry Collector, OTLP trace ingestion,
 Bronze/Silver telemetry contracts, Gold run projections, directed execution graphs,
-derived metrics, evidence-first diagnosis, safe replay planning, Runtime Diff, and a Next.js
-run-debugging UI. The architecture
+derived metrics, evidence-first diagnosis, safe replay planning, Runtime Diff, deterministic
+runtime policies, human approvals, and a Next.js control-plane UI. The architecture
 contract remains authoritative in [`docs/architecture.md`](docs/architecture.md).
 
 ## Repository layout
@@ -47,6 +47,8 @@ The analysis contract is documented in
 [`docs/analysis-diagnosis.md`](docs/analysis-diagnosis.md).
 Replay safety and deterministic comparison are documented in
 [`docs/replay-diff.md`](docs/replay-diff.md).
+Runtime control and approval semantics are documented in
+[`docs/runtime-control.md`](docs/runtime-control.md).
 
 ### Run services directly
 
@@ -77,7 +79,7 @@ cd frontend && npm run lint && npm run typecheck && npm run build
 
 ## Milestone boundaries
 
-Milestone 5 adds persisted replay plans, optional framework-adapter boundaries, semantic
-checkpoints, side-effect-safe tool decisions, and deterministic configuration/execution/outcome
-comparison. The generic adapter does not execute agent workflows. Policy evaluation, approval
-orchestration, live blocking, and automatic remediation remain outside this milestone.
+Milestone 6 adds project-scoped deterministic policy evaluation, persisted decisions, approval
+state and audit history, and optional resume/stop adapter boundaries. The default adapter does not
+orchestrate workflows. ML decisions, inline diagnosis, autonomous remediation, model switching,
+prompt rewriting, and full RBAC remain outside the core architecture.

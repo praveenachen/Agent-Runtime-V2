@@ -3,10 +3,7 @@ import { notFound } from "next/navigation";
 import { Card } from "@/components/ui/card";
 
 const sections: Record<string, { title: string; description: string }> = {
-  runs: { title: "Runs", description: "Execution history and graph inspection arrive in Milestone 3." },
-  policies: { title: "Policies", description: "Deterministic runtime guardrails arrive in Milestone 6." },
-  approvals: { title: "Approvals", description: "Human review workflows arrive in Milestone 6." },
-  settings: { title: "Settings", description: "Project and integration settings will grow with each milestone." },
+  settings: { title: "Settings", description: "Project and integration settings are not configured in this local workspace." },
 };
 
 export default async function SectionPage({ params }: { params: Promise<{ section: string }> }) {
@@ -22,10 +19,10 @@ export default async function SectionPage({ params }: { params: Promise<{ sectio
           <h1>{content.title}</h1>
         </div>
       </header>
-      <Card title="Foundation placeholder" eyebrow="Coming next">
+      <Card title="No configurable settings" eyebrow="Workspace">
         <div className="empty-state compact">
           <strong>{content.description}</strong>
-          <p>The navigation and route boundary are ready without simulating product data.</p>
+          <p>Agent Runtime shows only settings backed by an implemented product contract.</p>
         </div>
       </Card>
     </main>

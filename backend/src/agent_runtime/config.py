@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     telemetry_max_request_bytes: int = 10 * 1024 * 1024
     telemetry_late_after_seconds: int = 300
     cors_origins: tuple[str, ...] = ("http://localhost:3000",)
+    policy_service_fail_closed: bool = True
 
     databricks_enabled: bool = False
     databricks_host: str | None = None

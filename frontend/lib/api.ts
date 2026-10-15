@@ -135,6 +135,24 @@ export type ReplayRequest = {
   plan: { fallback_used: boolean; decisions: Array<{ label: string; action: string; reason: string; simulated: boolean }> };
 };
 
+export type PolicyAction = "ALLOW" | "BLOCK" | "PAUSE" | "REQUIRE_APPROVAL";
+export type Policy = {
+  id: string; project_id: string; name: string; description: string | null;
+  enabled: boolean; priority: number; action: PolicyAction;
+  conditions: Record<string, unknown>; fail_closed: boolean;
+  created_at: string; updated_at: string;
+};
+
+export type Approval = {
+  id: string; project_id: string; run_id: string; policy_id: string | null;
+  state: "pending" | "approved" | "rejected" | "expired";
+  action_summary: string; workflow_name: string | null; agent_name: string | null;
+  tool_name: string | null; operation: string | null; confidence: number | null;
+  proposed_inputs: Record<string, unknown>; match_reason: string;
+  reviewer_reference: string | null; resolved_at: string | null;
+  integration_reference: string | null; created_at: string; updated_at: string;
+};
+
 const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
 
 export async function fetchRuns(signal?: AbortSignal): Promise<RunSummary[]> {
@@ -181,6 +199,57 @@ export async function createReplayRequest(sourceRunId: string, mode: ReplayMode)
   });
   if (!response.ok) throw new Error(`Replay planning returned ${response.status}.`);
   return (await response.json()) as ReplayRequest;
+}
+
+export async function fetchPolicies(projectId: string, signal?: AbortSignal): Promise<Policy[]> {
+  const response = await fetch(`${API_URL}/api/v1/policies?project_id=${encodeURIComponent(projectId)}`, { signal });
+  if (!response.ok) throw new Error(`Policies returned ${response.status}.`);
+  return ((await response.json()) as { items: Policy[] }).items;
+}
+
+export async function savePolicy(
+  policyId: string | null,
+  payload: Omit<Policy, "id" | "created_at" | "updated_at">,
+): Promise<Policy> {
+  const response = await fetch(`${API_URL}/api/v1/policies${policyId ? `/${policyId}` : ""}`, {
+    method: policyId ? "PUT" : "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) throw new Error((await response.json()).detail ?? `Policy save returned ${response.status}.`);
+  return (await response.json()) as Policy;
+}
+
+export async function setPolicyEnabled(policyId: string, enabled: boolean): Promise<Policy> {
+  const response = await fetch(`${API_URL}/api/v1/policies/${policyId}/enabled`, {
+    method: "PATCH", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled }),
+  });
+  if (!response.ok) throw new Error(`Policy update returned ${response.status}.`);
+  return (await response.json()) as Policy;
+}
+
+export async function fetchApprovals(projectId: string, signal?: AbortSignal): Promise<Approval[]> {
+  const response = await fetch(`${API_URL}/api/v1/approvals?project_id=${encodeURIComponent(projectId)}&state=pending`, { signal });
+  if (!response.ok) throw new Error(`Approvals returned ${response.status}.`);
+  return ((await response.json()) as { items: Approval[] }).items;
+}
+
+export async function fetchPendingApprovalCount(projectId: string, signal?: AbortSignal): Promise<number> {
+  const response = await fetch(`${API_URL}/api/v1/approvals/pending/count?project_id=${encodeURIComponent(projectId)}`, { signal });
+  if (!response.ok) return 0;
+  return ((await response.json()) as { count: number }).count;
+}
+
+export async function resolveApproval(
+  approvalId: string, decision: "approve" | "reject",
+): Promise<Approval & { idempotent: boolean; integration_status: string }> {
+  const response = await fetch(`${API_URL}/api/v1/approvals/${approvalId}/${decision}`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reviewer_reference: "local-developer" }),
+  });
+  if (!response.ok) throw new Error((await response.json()).detail ?? `Approval returned ${response.status}.`);
+  return await response.json();
 }
 
 export function formatDuration(milliseconds: number): string {

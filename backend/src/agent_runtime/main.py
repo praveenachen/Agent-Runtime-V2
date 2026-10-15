@@ -6,6 +6,15 @@ from agent_runtime.analysis.explainers import DiagnosisExplainer
 from agent_runtime.analysis.service import AnalysisService
 from agent_runtime.api.router import api_router
 from agent_runtime.config import Settings, get_settings
+from agent_runtime.control.ports import (
+    ControlRepository,
+    LocalPermissiveAuthorizer,
+    NoopRuntimeControlAdapter,
+    ProjectAuthorizer,
+    RuntimeControlAdapter,
+)
+from agent_runtime.control.repository import SqlAlchemyControlRepository
+from agent_runtime.control.service import ControlService
 from agent_runtime.db.session import create_database_engine, create_session_factory
 from agent_runtime.replay.ports import (
     FrameworkReplayAdapter,
@@ -26,6 +35,9 @@ def create_app(
     diagnosis_explainer: DiagnosisExplainer | None = None,
     replay_repository: ReplayRequestRepository | None = None,
     replay_adapter: FrameworkReplayAdapter | None = None,
+    control_repository: ControlRepository | None = None,
+    project_authorizer: ProjectAuthorizer | None = None,
+    runtime_control_adapter: RuntimeControlAdapter | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     application = FastAPI(
@@ -43,13 +55,24 @@ def create_app(
         application.state.telemetry_store,
         baseline_projector=application.state.analysis_service,
     )
-    if replay_repository is None:
+    sessions = None
+    if replay_repository is None or control_repository is None:
         engine = create_database_engine(resolved_settings)
-        replay_repository = SqlAlchemyReplayRequestRepository(create_session_factory(engine))
+        sessions = create_session_factory(engine)
+    if replay_repository is None:
+        replay_repository = SqlAlchemyReplayRequestRepository(sessions)
     application.state.replay_service = ReplayService(
         application.state.run_service,
         replay_repository,
         replay_adapter or GenericReplayAdapter(),
+    )
+    if control_repository is None:
+        control_repository = SqlAlchemyControlRepository(sessions)
+    application.state.control_service = ControlService(
+        control_repository,
+        project_authorizer or LocalPermissiveAuthorizer(),
+        runtime_control_adapter or NoopRuntimeControlAdapter(),
+        service_fail_closed=resolved_settings.policy_service_fail_closed,
     )
     application.state.telemetry_ingestion = TelemetryIngestionService(
         application.state.telemetry_store,
@@ -59,7 +82,7 @@ def create_app(
     application.add_middleware(
         CORSMiddleware,
         allow_origins=list(resolved_settings.cors_origins),
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "PUT", "PATCH"],
         allow_headers=["*"],
     )
     application.include_router(api_router, prefix=resolved_settings.api_prefix)
