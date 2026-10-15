@@ -15,7 +15,7 @@ processors:
     send_batch_size: 512
 
 exporters:
-  otlphttp/agent_runtime:
+  otlp_http/agent_runtime:
     # Milestone 2 owns this OTLP ingestion endpoint and durable Bronze handling.
     endpoint: http://backend:8000/api/v1/telemetry/otlp
     retry_on_failure:
@@ -35,5 +35,5 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [otlphttp/agent_runtime]
+      exporters: [otlp_http/agent_runtime]
 
