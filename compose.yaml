@@ -23,6 +23,10 @@ services:
     environment:
       AGENT_RUNTIME_APP_ENV: development
       AGENT_RUNTIME_DATABASE_URL: postgresql+psycopg://agent_runtime:agent_runtime@postgres:5432/agent_runtime
+      AGENT_RUNTIME_TELEMETRY_BACKEND: local
+      AGENT_RUNTIME_TELEMETRY_LOCAL_PATH: /var/lib/agent-runtime/telemetry
+    volumes:
+      - telemetry-data:/var/lib/agent-runtime/telemetry
     ports:
       - "8000:8000"
     depends_on:
@@ -60,4 +64,5 @@ services:
 
 volumes:
   postgres-data:
+  telemetry-data:
 

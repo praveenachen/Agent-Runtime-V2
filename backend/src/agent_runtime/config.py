@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import model_validator
@@ -19,6 +20,11 @@ class Settings(BaseSettings):
         "postgresql+psycopg://agent_runtime:agent_runtime@localhost:5432/agent_runtime"
     )
 
+    telemetry_backend: Literal["local", "databricks"] = "local"
+    telemetry_local_path: Path = Path(".data/telemetry")
+    telemetry_max_request_bytes: int = 10 * 1024 * 1024
+    telemetry_late_after_seconds: int = 300
+
     databricks_enabled: bool = False
     databricks_host: str | None = None
     databricks_http_path: str | None = None
@@ -27,6 +33,10 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_databricks_settings(self) -> "Settings":
+        if self.app_env == "production" and self.telemetry_backend == "local":
+            raise ValueError("Local telemetry storage is not allowed in production")
+        if self.telemetry_backend == "databricks" and not self.databricks_enabled:
+            raise ValueError("The Databricks telemetry backend requires Databricks to be enabled")
         if self.databricks_enabled:
             required = {
                 "databricks_host": self.databricks_host,

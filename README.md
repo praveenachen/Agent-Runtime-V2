@@ -4,10 +4,10 @@ Framework-agnostic debugging and control plane for production AI agents.
 
 > Debug the decisions, not just the code.
 
-This repository contains the Milestone 1 production-shaped foundation: a FastAPI
-modular monolith, PostgreSQL application-state schema, OpenTelemetry Collector
-configuration, a Databricks analytics port, and a Next.js dashboard shell. The
-architecture contract remains authoritative in [`docs/architecture.md`](docs/architecture.md).
+This repository contains the Milestone 2 foundation: a FastAPI modular monolith,
+PostgreSQL application-state schema, OpenTelemetry Collector, OTLP trace ingestion,
+Bronze/Silver telemetry contracts, and a Next.js dashboard shell. The architecture
+contract remains authoritative in [`docs/architecture.md`](docs/architecture.md).
 
 ## Repository layout
 
@@ -35,9 +35,11 @@ docker compose exec backend alembic upgrade head
 - API docs: http://localhost:8000/docs
 - Health: http://localhost:8000/api/v1/health
 - OTLP: `localhost:4317` (gRPC) or `localhost:4318` (HTTP)
+- Agent Runtime OTLP/HTTP endpoint: `POST /api/v1/telemetry/otlp/v1/traces`
 
-The Collector is intentionally pointed at the Milestone 2 ingestion path. Until
-that endpoint exists, it can receive and retry telemetry but cannot persist it.
+Local telemetry is written to the `telemetry-data` volume as redacted Bronze and
+normalized Silver JSONL. Production uses the Databricks adapter boundary described
+in [`docs/telemetry-pipeline.md`](docs/telemetry-pipeline.md).
 
 ### Run services directly
 
@@ -68,7 +70,7 @@ cd frontend && npm run lint && npm run typecheck && npm run build
 
 ## Milestone boundaries
 
-Milestone 1 defines application-state placeholders and integration boundaries.
-It intentionally does not implement OTLP ingestion, Bronze/Silver/Gold jobs,
-execution graphs, diagnosis, replay execution, runtime diff, policy evaluation,
-or approval orchestration. Those remain ordered in `prompts/02` through `06`.
+Milestone 2 implements OTLP ingestion plus Bronze/Silver normalization. It does not
+implement Gold data, execution graphs, run metrics, diagnosis, replay execution,
+Runtime Diff, policy evaluation, or approval orchestration. Those remain ordered in
+`prompts/03` through `06`.

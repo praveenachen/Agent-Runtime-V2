@@ -29,3 +29,13 @@ def test_databricks_accepts_complete_connection_metadata() -> None:
 
     assert settings.databricks_catalog == "agent_runtime"
 
+
+def test_production_rejects_local_telemetry_storage() -> None:
+    with pytest.raises(ValidationError, match="Local telemetry storage is not allowed"):
+        Settings(app_env="production", _env_file=None)
+
+
+def test_databricks_backend_requires_databricks_to_be_enabled() -> None:
+    with pytest.raises(ValidationError, match="requires Databricks to be enabled"):
+        Settings(telemetry_backend="databricks", _env_file=None)
+

@@ -1,13 +1,24 @@
 from collections.abc import Sequence
-from typing import Any, Protocol
+from dataclasses import dataclass
+from typing import Protocol
+
+from agent_runtime.telemetry.records import BronzeSpanRecord, SilverEvent
+
+
+@dataclass(frozen=True, slots=True)
+class AppendResult:
+    accepted_ids: tuple[str, ...] = ()
+    duplicate_ids: tuple[str, ...] = ()
 
 
 class TelemetryAnalyticsStore(Protocol):
-    """Databricks boundary for raw and normalized telemetry.
+    """Persistence boundary for Bronze and Silver telemetry.
 
-    Milestone 1 intentionally provides only the port. Bronze/Silver/Gold writes
-    and any Databricks client dependency belong to later milestones.
+    Production implementations target Databricks Delta. Local and in-memory
+    adapters exist only for development and tests.
     """
 
-    async def append_bronze(self, records: Sequence[dict[str, Any]]) -> None: ...
+    async def append_bronze(self, records: Sequence[BronzeSpanRecord]) -> AppendResult: ...
+
+    async def append_silver(self, records: Sequence[SilverEvent]) -> AppendResult: ...
 
