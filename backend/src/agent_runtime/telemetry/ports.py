@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Protocol
 from agent_runtime.telemetry.records import BronzeSpanRecord, SilverEvent
 
 if TYPE_CHECKING:
+    from agent_runtime.analysis.models import BaselineRecord, DiagnosisRecord
     from agent_runtime.runs.models import RunRecord
 
 
@@ -32,3 +33,15 @@ class TelemetryAnalyticsStore(Protocol):
     async def list_gold_runs(self) -> list["RunRecord"]: ...
 
     async def get_gold_run(self, run_id: str) -> "RunRecord | None": ...
+
+    async def upsert_gold_baselines(
+        self, records: Sequence["BaselineRecord"]
+    ) -> AppendResult: ...
+
+    async def list_gold_baselines(self) -> list["BaselineRecord"]: ...
+
+    async def upsert_gold_diagnoses(
+        self, records: Sequence["DiagnosisRecord"]
+    ) -> AppendResult: ...
+
+    async def get_gold_diagnosis(self, run_id: str) -> "DiagnosisRecord | None": ...

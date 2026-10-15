@@ -38,6 +38,69 @@ export type RunDetail = RunSummary & {
   events: SilverEvent[];
 };
 
+export type BaselineScope = {
+  workflow_name: string;
+  environment: string;
+  workflow_version: string | null;
+  prompt_version: string | null;
+  model: string | null;
+};
+
+export type BaselineComparison = {
+  metric: string;
+  current_value: number;
+  median: number;
+  p90: number;
+  deviation_from_median: number;
+  threshold: number;
+  sample_size: number;
+  confidence: number;
+  confidence_label: string;
+  baseline_scope: BaselineScope;
+};
+
+export type EvidenceItem = {
+  evidence_id: string;
+  anomaly_type: string;
+  detector_type: "rule" | "statistical";
+  severity: "critical" | "high" | "warning" | "info";
+  observed_fact: string;
+  metric_evidence: Record<string, number | string | null>;
+  graph_evidence: string[];
+  baseline_comparison: BaselineComparison | null;
+  affected_node_ids: string[];
+  inferred_cause: string | null;
+  recommendation: string | null;
+};
+
+export type Diagnosis = {
+  diagnosis_id: string;
+  run_id: string;
+  generated_at: string;
+  status: "anomalies_detected" | "no_anomalies";
+  provider: string;
+  observed_facts: string[];
+  impact: string;
+  inferred_causes: Array<{
+    statement: string;
+    confidence: string;
+    supporting_evidence_ids: string[];
+    is_inference: true;
+  }>;
+  suggested_investigations: string[];
+  evidence_sufficient: boolean;
+  evidence: {
+    items: EvidenceItem[];
+    baseline_coverage: Array<{
+      metric: string;
+      sample_size: number;
+      confidence: number;
+      confidence_label: string;
+      baseline_scope: BaselineScope;
+    }>;
+  };
+};
+
 const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
 
 export async function fetchRuns(signal?: AbortSignal): Promise<RunSummary[]> {
@@ -52,6 +115,15 @@ export async function fetchRun(runId: string, signal?: AbortSignal): Promise<Run
   if (response.status === 404) throw new Error("This run could not be found.");
   if (!response.ok) throw new Error(`The run API returned ${response.status}.`);
   return (await response.json()) as RunDetail;
+}
+
+export async function fetchDiagnosis(runId: string, signal?: AbortSignal): Promise<Diagnosis> {
+  const response = await fetch(
+    `${API_URL}/api/v1/runs/${encodeURIComponent(runId)}/diagnosis`,
+    { signal },
+  );
+  if (!response.ok) throw new Error(`Diagnosis returned ${response.status}.`);
+  return (await response.json()) as Diagnosis;
 }
 
 export function formatDuration(milliseconds: number): string {

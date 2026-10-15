@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { RunStatus } from "@/components/run-status";
+import { DiagnosisPanel } from "@/components/diagnosis-panel";
 import {
   fetchRun,
   formatDuration,
@@ -50,7 +51,7 @@ export function RunDetail({ runId }: { runId: string }) {
       <CompactMetric label="Cost" value={run.metrics.estimated_cost == null ? "—" : `$${run.metrics.estimated_cost.toFixed(4)}`} />
     </section>
     <ExecutionGraph nodes={run.graph.nodes} edges={run.graph.edges} />
-    <div className="detail-grid"><Timeline run={run} /><aside className="diagnosis-boundary"><p className="eyebrow">Diagnosis</p><h2>Evidence analysis</h2><p>Reserved for Milestone 4. No cause or anomaly is inferred from this run yet.</p><span className="boundary-label">Not evaluated</span></aside></div>
+    <div className="detail-grid"><Timeline run={run} /><DiagnosisPanel runId={run.run_id} /></div>
     <details className="raw-panel"><summary><span>Raw normalized events</span><small>{run.events.length} Silver records</small></summary><pre>{JSON.stringify(run.events, null, 2)}</pre></details>
   </>;
 }

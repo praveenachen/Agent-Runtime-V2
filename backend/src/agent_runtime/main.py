@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from agent_runtime import __version__
+from agent_runtime.analysis.explainers import DiagnosisExplainer
+from agent_runtime.analysis.service import AnalysisService
 from agent_runtime.api.router import api_router
 from agent_runtime.config import Settings, get_settings
 from agent_runtime.runs.service import RunService
@@ -13,6 +15,7 @@ from agent_runtime.telemetry.service import TelemetryIngestionService
 def create_app(
     settings: Settings | None = None,
     telemetry_store: TelemetryAnalyticsStore | None = None,
+    diagnosis_explainer: DiagnosisExplainer | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     application = FastAPI(
@@ -22,7 +25,14 @@ def create_app(
     )
     application.state.settings = resolved_settings
     application.state.telemetry_store = telemetry_store or create_telemetry_store(resolved_settings)
-    application.state.run_service = RunService(application.state.telemetry_store)
+    application.state.analysis_service = AnalysisService(
+        application.state.telemetry_store,
+        explainer=diagnosis_explainer,
+    )
+    application.state.run_service = RunService(
+        application.state.telemetry_store,
+        baseline_projector=application.state.analysis_service,
+    )
     application.state.telemetry_ingestion = TelemetryIngestionService(
         application.state.telemetry_store,
         late_after_seconds=resolved_settings.telemetry_late_after_seconds,

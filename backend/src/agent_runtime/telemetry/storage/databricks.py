@@ -3,6 +3,7 @@ import re
 from collections.abc import Sequence
 from typing import Any, Protocol
 
+from agent_runtime.analysis.models import BaselineRecord, DiagnosisRecord
 from agent_runtime.runs.models import RunRecord
 from agent_runtime.telemetry.ports import AppendResult
 from agent_runtime.telemetry.records import BronzeSpanRecord, SilverEvent
@@ -10,6 +11,8 @@ from agent_runtime.telemetry.records import BronzeSpanRecord, SilverEvent
 BRONZE_TABLE_NAME = "bronze_agent_spans"
 SILVER_TABLE_NAME = "silver_agent_events"
 GOLD_RUNS_TABLE_NAME = "gold_runs"
+GOLD_BASELINES_TABLE_NAME = "gold_workflow_baselines"
+GOLD_DIAGNOSES_TABLE_NAME = "gold_run_diagnoses"
 
 BRONZE_DELTA_COLUMNS = {
     "record_id": "STRING",
@@ -50,6 +53,23 @@ GOLD_RUNS_DELTA_COLUMNS = {
     "run_json": "STRING",
 }
 
+GOLD_BASELINES_DELTA_COLUMNS = {
+    "baseline_id": "STRING",
+    "workflow_name": "STRING",
+    "environment": "STRING",
+    "updated_at": "TIMESTAMP",
+    "run_count": "BIGINT",
+    "baseline_json": "STRING",
+}
+
+GOLD_DIAGNOSES_DELTA_COLUMNS = {
+    "diagnosis_id": "STRING",
+    "run_id": "STRING",
+    "generated_at": "TIMESTAMP",
+    "status": "STRING",
+    "diagnosis_json": "STRING",
+}
+
 
 class DatabricksMergeWriter(Protocol):
     """Connector seam for Delta MERGE operations using the stable record ID."""
@@ -78,6 +98,8 @@ class DatabricksTelemetryStore:
         self._bronze_table = _table_reference(catalog, schema, BRONZE_TABLE_NAME)
         self._silver_table = _table_reference(catalog, schema, SILVER_TABLE_NAME)
         self._gold_runs_table = _table_reference(catalog, schema, GOLD_RUNS_TABLE_NAME)
+        self._gold_baselines_table = _table_reference(catalog, schema, GOLD_BASELINES_TABLE_NAME)
+        self._gold_diagnoses_table = _table_reference(catalog, schema, GOLD_DIAGNOSES_TABLE_NAME)
 
     async def append_bronze(self, records: Sequence[BronzeSpanRecord]) -> AppendResult:
         return await self._writer.merge_records(
@@ -111,6 +133,28 @@ class DatabricksTelemetryStore:
     async def get_gold_run(self, run_id: str) -> RunRecord | None:
         rows = await self._writer.query_records(self._gold_runs_table, trace_ids=[run_id])
         return RunRecord.from_dict(json.loads(rows[0]["run_json"])) if rows else None
+
+    async def upsert_gold_baselines(self, records: Sequence[BaselineRecord]) -> AppendResult:
+        return await self._writer.merge_records(
+            self._gold_baselines_table,
+            [_gold_baseline_row(record) for record in records],
+            key_column="baseline_id",
+        )
+
+    async def list_gold_baselines(self) -> list[BaselineRecord]:
+        rows = await self._writer.query_records(self._gold_baselines_table)
+        return [BaselineRecord.from_dict(json.loads(row["baseline_json"])) for row in rows]
+
+    async def upsert_gold_diagnoses(self, records: Sequence[DiagnosisRecord]) -> AppendResult:
+        return await self._writer.merge_records(
+            self._gold_diagnoses_table,
+            [_gold_diagnosis_row(record) for record in records],
+            key_column="diagnosis_id",
+        )
+
+    async def get_gold_diagnosis(self, run_id: str) -> DiagnosisRecord | None:
+        rows = await self._writer.query_records(self._gold_diagnoses_table, trace_ids=[run_id])
+        return DiagnosisRecord.from_dict(json.loads(rows[0]["diagnosis_json"])) if rows else None
 
 
 def _table_reference(catalog: str, schema: str, table: str) -> str:
@@ -164,4 +208,25 @@ def _gold_run_row(record: RunRecord) -> dict[str, Any]:
         "workflow_name": record.workflow_name,
         "environment": record.environment,
         "run_json": json.dumps(record.to_dict(), separators=(",", ":"), sort_keys=True),
+    }
+
+
+def _gold_baseline_row(record: BaselineRecord) -> dict[str, Any]:
+    return {
+        "baseline_id": record.baseline_id,
+        "workflow_name": record.key.workflow_name,
+        "environment": record.key.environment,
+        "updated_at": record.updated_at,
+        "run_count": record.run_count,
+        "baseline_json": json.dumps(record.to_dict(), separators=(",", ":"), sort_keys=True),
+    }
+
+
+def _gold_diagnosis_row(record: DiagnosisRecord) -> dict[str, Any]:
+    return {
+        "diagnosis_id": record.diagnosis_id,
+        "run_id": record.run_id,
+        "generated_at": record.generated_at,
+        "status": record.status,
+        "diagnosis_json": json.dumps(record.to_dict(), separators=(",", ":"), sort_keys=True),
     }

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Protocol
 
 from agent_runtime.runs.models import (
     ExecutionGraph,
@@ -16,9 +16,19 @@ from agent_runtime.telemetry.ports import TelemetryAnalyticsStore
 from agent_runtime.telemetry.records import SilverEvent
 
 
+class BaselineProjector(Protocol):
+    async def refresh_baselines(self) -> None: ...
+
+
 class RunService:
-    def __init__(self, store: TelemetryAnalyticsStore) -> None:
+    def __init__(
+        self,
+        store: TelemetryAnalyticsStore,
+        *,
+        baseline_projector: BaselineProjector | None = None,
+    ) -> None:
         self._store = store
+        self._baseline_projector = baseline_projector
 
     async def materialize(self, trace_ids: Sequence[str] | None = None) -> tuple[RunRecord, ...]:
         events = await self._store.query_silver(trace_ids=trace_ids)
@@ -28,6 +38,8 @@ class RunService:
         records = tuple(build_run(group) for group in grouped.values())
         if records:
             await self._store.upsert_gold_runs(records)
+            if self._baseline_projector is not None:
+                await self._baseline_projector.refresh_baselines()
         return records
 
     async def list_runs(
