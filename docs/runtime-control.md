@@ -10,9 +10,11 @@ the current project/run identity plus any available workflow, agent, tool, opera
 replayability, confidence, cost, and count facts. Missing values are never inferred and conditions
 that require a missing value do not match.
 
-The response tells the caller to `ALLOW`, `BLOCK`, `PAUSE`, or `REQUIRE_APPROVAL`. For pause or
+The response tells the caller to `ALLOW`, `BLOCK`, `PAUSE`, or `REQUIRE_APPROVAL`. The additive
+`authorization_source` field distinguishes a direct policy result, a new approval request, an
+existing pending request, and authorization from an existing approved approval. For pause or
 approval, the caller retains its own continuation/checkpoint and stops advancing. Agent Runtime is
-not a workflow engine.
+not a workflow engine and approval does not create a bearer credential.
 
 ## Conditions and precedence
 
@@ -36,6 +38,19 @@ was made.
 Approval state is `PENDING -> APPROVED | REJECTED | EXPIRED`. Repeating the same resolution is
 idempotent; attempting the opposite resolution returns a conflict. Inputs are redacted before
 persistence. Policy decisions and approval transitions have PostgreSQL audit records.
+
+A caller may retry an action with the same `control_reference`. An approved record authorizes the
+retry only when project, policy ID, immutable policy revision hash, logical run ID, control
+reference, and deterministic sanitized-context hash all match and the approval has not expired.
+The hash is computed after redaction from the context evaluated by policy; raw secrets are never
+hashed or persisted for this purpose. Any relevant policy edit changes the revision hash and
+invalidates reuse. Missing control references, rejected approvals, and expired approvals never
+authorize a retry. The default expiry is 24 hours and is configurable with
+`AGENT_RUNTIME_APPROVAL_TTL_SECONDS`.
+
+On a valid retry the evaluation action is `ALLOW`, `authorization_source` is
+`existing_approved_approval`, and `authorizing_approval_id` identifies the server-side approval.
+No new approval is created. Repeated retries return the same authorization result.
 
 Approval resolution invokes an optional runtime-control adapter. Approve maps to `resume`; reject
 maps to `stop`. The default adapter performs neither operation and reports `not_configured`.

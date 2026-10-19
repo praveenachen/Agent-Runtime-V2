@@ -70,6 +70,28 @@ class InMemoryControlRepository:
     async def get_approval(self, approval_id: str) -> ApprovalRecord | None:
         return self.approvals.get(approval_id)
 
+    async def find_latest_bound_approval(
+        self,
+        *,
+        project_id: str,
+        policy_id: str,
+        policy_revision: str,
+        run_id: str,
+        control_reference: str,
+        context_hash: str,
+    ) -> ApprovalRecord | None:
+        matches = [
+            item
+            for item in self.approvals.values()
+            if item.project_id == project_id
+            and item.policy_id == policy_id
+            and item.policy_revision == policy_revision
+            and item.run_id == run_id
+            and item.control_reference == control_reference
+            and item.context_hash == context_hash
+        ]
+        return max(matches, key=lambda item: (item.created_at, item.id), default=None)
+
     async def resolve_approval(
         self, approval_id: str, state: str, reviewer: str | None,
         integration_reference: str | None,
@@ -90,6 +112,16 @@ class InMemoryControlRepository:
             {"approval_id": approval_id, "event_type": state, "actor": reviewer}
         )
         return resolved, False
+
+    async def expire_approval(self, approval_id: str) -> ApprovalRecord:
+        record = self.approvals[approval_id]
+        if record.state == ApprovalState.EXPIRED:
+            return record
+        now = datetime.now(UTC).isoformat()
+        expired = replace(record, state=ApprovalState.EXPIRED, updated_at=now)
+        self.approvals[approval_id] = expired
+        self.audit_events.append({"approval_id": approval_id, "event_type": "expired"})
+        return expired
 
     async def attach_integration_reference(
         self, approval_id: str, reference: str
@@ -134,6 +166,21 @@ class SqlAlchemyControlRepository:
             result = _policy(entity)
         return result
 
+    async def expire_approval(self, approval_id: str) -> ApprovalRecord:
+        with self._sessions.begin() as session:
+            entity = session.scalar(
+                select(Approval).where(Approval.id == _uuid(approval_id)).with_for_update()
+            )
+            if entity is None:
+                raise KeyError(approval_id)
+            if entity.state != ApprovalState.EXPIRED:
+                entity.state = ApprovalState.EXPIRED
+                session.add(_audit(entity.id, "expired", None, {}))
+                session.flush()
+                session.refresh(entity)
+            result = _approval(entity)
+        return result
+
     async def delete_policy(self, policy_id: str) -> None:
         with self._sessions.begin() as session:
             entity = session.get(Policy, _uuid(policy_id))
@@ -144,6 +191,7 @@ class SqlAlchemyControlRepository:
         identifier = _uuid(decision.get("id")) or uuid4()
         with self._sessions.begin() as session:
             values = {key: value for key, value in decision.items() if key != "id"}
+            values["authorizing_approval_id"] = _uuid(values.get("authorizing_approval_id"))
             session.add(PolicyDecision(id=identifier, **values))
             if approval:
                 approval_id = _uuid(approval.id) or uuid4()
@@ -163,6 +211,14 @@ class SqlAlchemyControlRepository:
                     confidence=approval.confidence,
                     proposed_inputs=approval.proposed_inputs,
                     match_reason=approval.match_reason,
+                    policy_revision=approval.policy_revision,
+                    control_reference=approval.control_reference,
+                    context_hash=approval.context_hash,
+                    expires_at=(
+                        datetime.fromisoformat(approval.expires_at)
+                        if approval.expires_at
+                        else None
+                    ),
                     resolved_at=None,
                     integration_reference=None,
                 )
@@ -181,6 +237,32 @@ class SqlAlchemyControlRepository:
     async def get_approval(self, approval_id: str) -> ApprovalRecord | None:
         with self._sessions() as session:
             entity = session.get(Approval, _uuid(approval_id))
+            return _approval(entity) if entity else None
+
+    async def find_latest_bound_approval(
+        self,
+        *,
+        project_id: str,
+        policy_id: str,
+        policy_revision: str,
+        run_id: str,
+        control_reference: str,
+        context_hash: str,
+    ) -> ApprovalRecord | None:
+        with self._sessions() as session:
+            entity = session.scalar(
+                select(Approval)
+                .where(
+                    Approval.project_id == UUID(project_id),
+                    Approval.policy_id == _uuid(policy_id),
+                    Approval.policy_revision == policy_revision,
+                    Approval.run_id == run_id,
+                    Approval.control_reference == control_reference,
+                    Approval.context_hash == context_hash,
+                )
+                .order_by(Approval.created_at.desc(), Approval.id.desc())
+                .limit(1)
+            )
             return _approval(entity) if entity else None
 
     async def resolve_approval(
@@ -243,6 +325,10 @@ def _approval(entity: Approval) -> ApprovalRecord:
         resolved_at=entity.resolved_at.isoformat() if entity.resolved_at else None,
         integration_reference=entity.integration_reference,
         created_at=entity.created_at.isoformat(), updated_at=entity.updated_at.isoformat(),
+        policy_revision=entity.policy_revision,
+        control_reference=entity.control_reference,
+        context_hash=entity.context_hash,
+        expires_at=entity.expires_at.isoformat() if entity.expires_at else None,
     )
 
 

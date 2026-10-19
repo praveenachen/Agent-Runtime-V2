@@ -73,6 +73,7 @@ def create_app(
         project_authorizer or LocalPermissiveAuthorizer(),
         runtime_control_adapter or NoopRuntimeControlAdapter(),
         service_fail_closed=resolved_settings.policy_service_fail_closed,
+        approval_ttl_seconds=resolved_settings.approval_ttl_seconds,
     )
     application.state.telemetry_ingestion = TelemetryIngestionService(
         application.state.telemetry_store,

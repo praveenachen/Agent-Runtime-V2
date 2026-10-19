@@ -2,12 +2,12 @@ export type RunMetrics = {
   total_duration_ms: number; agent_latency_ms: number; tool_latency_ms: number;
   tool_call_count: number; llm_call_count: number; retry_count: number;
   handoff_count: number; repeated_transition_count: number; error_count: number;
-  input_tokens: number; output_tokens: number; total_tokens: number;
+  input_tokens: number | null; output_tokens: number | null; total_tokens: number | null;
   estimated_cost: number | null; approval_wait_ms: number; path_length: number; step_count: number;
 };
 
 export type GraphNode = {
-  id: string; span_id: string; parent_span_id: string | null; event_type: string; label: string;
+  id: string; trace_id: string | null; span_id: string; parent_span_id: string | null; event_type: string; label: string;
   started_at: string; ended_at: string; duration_ms: number; status: string; agent_name: string | null;
   depth: number; lane: number; is_concurrent: boolean; retry_index: number | null;
   semantic_attributes: Record<string, unknown>;
@@ -23,11 +23,13 @@ export type SilverEvent = {
   event_id: string; trace_id: string; span_id: string; parent_span_id: string | null;
   timestamp: string; duration_ms: number; status: string; event_type: string;
   agent_name: string | null; is_late: boolean; is_out_of_order: boolean;
+  external_run_id: string | null;
   semantic_attributes: Record<string, unknown>; attributes: Record<string, unknown>;
 };
 
 export type RunSummary = {
-  run_id: string; trace_id: string; name: string; status: string; started_at: string;
+  run_id: string; trace_id: string; trace_ids: string[]; external_run_id: string | null;
+  name: string; status: string; started_at: string;
   ended_at: string; materialized_at: string; workflow_name: string | null;
   workflow_version: string | null; environment: string | null;
   organization_id: string | null; project_id: string | null; metrics: RunMetrics;
@@ -151,6 +153,8 @@ export type Approval = {
   proposed_inputs: Record<string, unknown>; match_reason: string;
   reviewer_reference: string | null; resolved_at: string | null;
   integration_reference: string | null; created_at: string; updated_at: string;
+  policy_revision: string | null; control_reference: string | null;
+  context_hash: string | null; expires_at: string | null;
 };
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");

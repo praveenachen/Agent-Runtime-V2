@@ -67,6 +67,8 @@ class EvaluationResult:
     evaluation_failed: bool
     decision_made: bool
     failure_behavior: str | None
+    authorization_source: str = "direct_policy"
+    authorizing_approval_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -93,6 +95,10 @@ class ApprovalRecord:
     integration_reference: str | None
     created_at: str
     updated_at: str
+    policy_revision: str | None = None
+    control_reference: str | None = None
+    context_hash: str | None = None
+    expires_at: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

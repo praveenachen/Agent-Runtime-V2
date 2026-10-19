@@ -32,6 +32,7 @@ class SilverEvent:
     observed_lag_ms: float
     is_late: bool
     is_out_of_order: bool
+    external_run_id: str | None = None
     organization_id: str | None = None
     project_id: str | None = None
     workflow_name: str | None = None

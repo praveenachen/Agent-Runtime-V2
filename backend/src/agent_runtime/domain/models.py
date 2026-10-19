@@ -131,7 +131,7 @@ class Approval(IdentityMixin, TimestampMixin, Base):
     __tablename__ = "approvals"
 
     project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id"), nullable=False)
-    run_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    run_id: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
     policy_id: Mapped[UUID | None] = mapped_column(ForeignKey("policies.id"))
     state: Mapped[ApprovalState] = mapped_column(
         Enum(ApprovalState, native_enum=False, length=16), default=ApprovalState.PENDING
@@ -148,13 +148,17 @@ class Approval(IdentityMixin, TimestampMixin, Base):
     match_reason: Mapped[str] = mapped_column(Text, default="", nullable=False)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     integration_reference: Mapped[str | None] = mapped_column(String(200))
+    policy_revision: Mapped[str | None] = mapped_column(String(64), index=True)
+    control_reference: Mapped[str | None] = mapped_column(String(200), index=True)
+    context_hash: Mapped[str | None] = mapped_column(String(64), index=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class PolicyDecision(IdentityMixin, TimestampMixin, Base):
     __tablename__ = "policy_decisions"
 
     project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id"), nullable=False)
-    run_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    run_id: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
     action: Mapped[PolicyAction] = mapped_column(
         Enum(PolicyAction, native_enum=False, length=32), nullable=False
     )
@@ -164,6 +168,12 @@ class PolicyDecision(IdentityMixin, TimestampMixin, Base):
     evaluation_failed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     decision_made: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     failure_behavior: Mapped[str | None] = mapped_column(String(32))
+    authorization_source: Mapped[str] = mapped_column(
+        String(32), default="direct_policy", nullable=False
+    )
+    authorizing_approval_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("approvals.id")
+    )
 
 
 class ApprovalAuditEvent(IdentityMixin, Base):

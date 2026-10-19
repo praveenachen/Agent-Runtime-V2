@@ -140,6 +140,50 @@ def test_normalizer_records_late_arrival() -> None:
     assert event.observed_lag_ms >= 600_000
 
 
+def test_normalizer_canonicalizes_integer_versions() -> None:
+    _assert_normalized_versions(7)
+
+
+def test_normalizer_preserves_string_versions_canonically() -> None:
+    _assert_normalized_versions("7")
+
+
+def _assert_normalized_versions(value: int | str) -> None:
+    now = datetime.now(UTC)
+    record = BronzeSpanRecord(
+        record_id="trace:versions",
+        trace_id="trace",
+        span_id="versions",
+        parent_span_id=None,
+        received_at=now.isoformat(),
+        source_format="test",
+        resource={"attributes": {}},
+        instrumentation_scope={},
+        span={
+            "start_time_unix_nano": int(now.timestamp() * 1_000_000_000),
+            "end_time_unix_nano": int(now.timestamp() * 1_000_000_000),
+            "status": {"code": "OK"},
+            "attributes": {
+                "agent.runtime.event_type": "TOOL_CALL",
+                "agent.runtime.workflow.version": value,
+                "agent.runtime.prompt.version": value,
+                "agent.runtime.model.version": value,
+                "agent.runtime.config.version": value,
+                "agent.runtime.tool.version": value,
+            },
+        },
+    )
+
+    event = SemanticNormalizer().normalize(record)
+
+    assert event is not None
+    assert event.workflow_version == "7"
+    assert event.prompt_version == "7"
+    assert event.model == "7"
+    assert event.attributes["agent.runtime.config.version"] == "7"
+    assert event.attributes["agent.runtime.tool.version"] == "7"
+
+
 async def _post_protobuf(app, payload: bytes, *, content_encoding: str | None = None):
     return await _post(app, payload, "application/x-protobuf", content_encoding=content_encoding)
 

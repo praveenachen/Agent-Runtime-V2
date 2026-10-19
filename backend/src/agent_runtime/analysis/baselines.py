@@ -21,7 +21,7 @@ def baseline_key(run: RunRecord) -> BaselineKey:
     return BaselineKey(
         workflow_name=run.workflow_name or "unknown-workflow",
         environment=run.environment or "unknown-environment",
-        workflow_version=run.workflow_version,
+        workflow_version=_string_value(run.workflow_version),
         prompt_version=_event_field(run, "prompt_version"),
         model=_event_field(run, "model"),
     )
@@ -105,3 +105,7 @@ def _metric_value(run: RunRecord, metric_name: str) -> float | None:
 
 def _event_field(run: RunRecord, field: str) -> str | None:
     return next((str(event[field]) for event in run.events if event.get(field) is not None), None)
+
+
+def _string_value(value: object) -> str | None:
+    return str(value) if value is not None else None

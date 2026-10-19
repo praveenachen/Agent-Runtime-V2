@@ -29,7 +29,7 @@ class EnabledPayload(BaseModel):
 
 class EvaluationPayload(BaseModel):
     project_id: UUID
-    run_id: str = Field(min_length=1, max_length=64)
+    run_id: str = Field(min_length=1, max_length=200)
     workflow_name: str | None = None
     agent_name: str | None = None
     tool_name: str | None = None
@@ -43,7 +43,7 @@ class EvaluationPayload(BaseModel):
     retry_count: int | None = Field(default=None, ge=0)
     repeated_transition_count: int | None = Field(default=None, ge=0)
     proposed_inputs: dict[str, Any] = Field(default_factory=dict)
-    control_reference: str | None = None
+    control_reference: str | None = Field(default=None, max_length=200)
 
 
 class ResolutionPayload(BaseModel):

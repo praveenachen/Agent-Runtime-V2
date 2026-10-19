@@ -123,14 +123,22 @@ def _configuration_values(
 ) -> tuple[tuple[str, Any, Any], ...]:
     fields = (
         ("workflow_name", original.workflow_name, comparison.workflow_name),
-        ("workflow_version", original.workflow_version, comparison.workflow_version),
+        (
+            "workflow_version",
+            _version_value(original.workflow_version),
+            _version_value(comparison.workflow_version),
+        ),
         ("environment", original.environment, comparison.environment),
         (
             "prompt_version",
-            _event_field(original, "prompt_version"),
-            _event_field(comparison, "prompt_version"),
+            _version_value(_event_field(original, "prompt_version")),
+            _version_value(_event_field(comparison, "prompt_version")),
         ),
-        ("model", _event_field(original, "model"), _event_field(comparison, "model")),
+        (
+            "model",
+            _version_value(_event_field(original, "model")),
+            _version_value(_event_field(comparison, "model")),
+        ),
         (
             "git_commit",
             _event_field(original, "git_commit"),
@@ -138,8 +146,8 @@ def _configuration_values(
         ),
         (
             "config_version",
-            _attribute_value(original, "agent.runtime.config.version"),
-            _attribute_value(comparison, "agent.runtime.config.version"),
+            _version_value(_attribute_value(original, "agent.runtime.config.version")),
+            _version_value(_attribute_value(comparison, "agent.runtime.config.version")),
         ),
         ("tool_versions", _tool_versions(original), _tool_versions(comparison)),
     )
@@ -173,6 +181,10 @@ def _tool_versions(run: RunRecord) -> dict[str, str]:
         if name is not None and version is not None:
             versions[str(name)] = str(version)
     return versions
+
+
+def _version_value(value: Any) -> str | None:
+    return str(value) if value is not None else None
 
 
 def _metric(

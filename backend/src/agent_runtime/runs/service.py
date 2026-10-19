@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 from collections import defaultdict
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
+from hashlib import sha256
 from typing import Any, Protocol
 
 from agent_runtime.runs.models import (
@@ -31,11 +33,17 @@ class RunService:
         self._baseline_projector = baseline_projector
 
     async def materialize(self, trace_ids: Sequence[str] | None = None) -> tuple[RunRecord, ...]:
-        events = await self._store.query_silver(trace_ids=trace_ids)
-        grouped: dict[str, list[SilverEvent]] = defaultdict(list)
-        for event in events:
-            grouped[event.trace_id].append(event)
-        records = tuple(build_run(group) for group in grouped.values())
+        # Logical identity can span traces, so incremental materialization must see
+        # sibling traces already present in Silver. The selected trace IDs only
+        # determine which logical groups are rebuilt.
+        events = await self._store.query_silver()
+        grouped = _group_logical_runs(events)
+        selected = set(trace_ids) if trace_ids is not None else None
+        records = tuple(
+            build_run(group)
+            for group in grouped.values()
+            if selected is None or any(event.trace_id in selected for event in group)
+        )
         if records:
             await self._store.upsert_gold_runs(records)
             if self._baseline_projector is not None:
@@ -87,8 +95,10 @@ def build_run(events: Sequence[SilverEvent]) -> RunRecord:
     graph = ExecutionGraph(nodes=tuple(nodes), edges=tuple(edges))
     metrics = _metrics(ordered, nodes, repeated_count, min(starts), max(ends))
     workflow = run_event.workflow_name or _first_value(ordered, "workflow_name")
+    identity = _logical_identity(ordered)
+    trace_ids = tuple(sorted({event.trace_id for event in ordered}))
     return RunRecord(
-        run_id=run_event.trace_id,
+        run_id=_logical_run_id(identity) if identity is not None else run_event.trace_id,
         trace_id=run_event.trace_id,
         name=str(run_event.attributes.get("agent.runtime.run.name") or workflow or "Untitled run"),
         status=status,
@@ -98,32 +108,79 @@ def build_run(events: Sequence[SilverEvent]) -> RunRecord:
         organization_id=run_event.organization_id or _first_value(ordered, "organization_id"),
         project_id=run_event.project_id or _first_value(ordered, "project_id"),
         workflow_name=workflow,
-        workflow_version=run_event.workflow_version or _first_value(ordered, "workflow_version"),
+        workflow_version=_string_value(
+            run_event.workflow_version or _first_value(ordered, "workflow_version")
+        ),
         environment=run_event.environment or _first_value(ordered, "environment"),
         graph=graph,
         metrics=metrics,
         events=tuple(event.to_dict() for event in ordered),
+        trace_ids=trace_ids,
+        external_run_id=identity[2] if identity is not None else None,
     )
 
 
+def _group_logical_runs(events: Sequence[SilverEvent]) -> dict[str, list[SilverEvent]]:
+    by_trace: dict[str, list[SilverEvent]] = defaultdict(list)
+    for event in events:
+        by_trace[event.trace_id].append(event)
+    grouped: dict[str, list[SilverEvent]] = defaultdict(list)
+    for trace_id, trace_events in by_trace.items():
+        identity = _logical_identity(trace_events)
+        key = _logical_run_id(identity) if identity is not None else trace_id
+        grouped[key].extend(trace_events)
+    return grouped
+
+
+def _logical_identity(events: Sequence[SilverEvent]) -> tuple[str, str, str] | None:
+    values = []
+    for field in ("project_id", "workflow_name", "external_run_id"):
+        distinct = {
+            str(value)
+            for event in events
+            if (value := _identity_value(event, field)) is not None
+        }
+        if len(distinct) != 1:
+            return None
+        values.append(distinct.pop())
+    return values[0], values[1], values[2]
+
+
+def _identity_value(event: SilverEvent, field: str) -> Any:
+    value = getattr(event, field)
+    if value is not None:
+        return value
+    if field == "external_run_id":
+        return event.attributes.get("agent.runtime.external_run_id") or event.attributes.get(
+            "external_run_id"
+        )
+    return None
+
+
+def _logical_run_id(identity: tuple[str, str, str]) -> str:
+    canonical = json.dumps(identity, ensure_ascii=True, separators=(",", ":"))
+    return f"logical-{sha256(canonical.encode('utf-8')).hexdigest()}"
+
+
 def _build_graph(events: list[SilverEvent]) -> tuple[list[GraphNode], list[GraphEdge], int]:
-    by_span = {event.span_id: event for event in events}
-    depth_cache: dict[str, int] = {}
+    by_span = {(event.trace_id, event.span_id): event for event in events}
+    depth_cache: dict[tuple[str, str], int] = {}
 
     def depth(event: SilverEvent, visiting: set[str] | None = None) -> int:
-        if event.span_id in depth_cache:
-            return depth_cache[event.span_id]
+        key = (event.trace_id, event.span_id)
+        if key in depth_cache:
+            return depth_cache[key]
         active = set() if visiting is None else visiting
         if (
             event.span_id in active
             or not event.parent_span_id
-            or event.parent_span_id not in by_span
+            or (event.trace_id, event.parent_span_id) not in by_span
         ):
             return 0
         active.add(event.span_id)
-        result = 1 + depth(by_span[event.parent_span_id], active)
+        result = 1 + depth(by_span[(event.trace_id, event.parent_span_id)], active)
         active.remove(event.span_id)
-        depth_cache[event.span_id] = result
+        depth_cache[key] = result
         return result
 
     intervals = [
@@ -164,13 +221,15 @@ def _build_graph(events: list[SilverEvent]) -> tuple[list[GraphNode], list[Graph
                 is_concurrent=concurrent,
                 retry_index=_integer(event.semantic_attributes.get("retry_index")),
                 semantic_attributes=event.semantic_attributes,
+                trace_id=event.trace_id,
             )
         )
 
     edges: list[GraphEdge] = []
     for event in events:
-        if event.parent_span_id in by_span:
-            parent = by_span[event.parent_span_id]
+        parent_key = (event.trace_id, event.parent_span_id)
+        if event.parent_span_id and parent_key in by_span:
+            parent = by_span[parent_key]
             edges.append(_edge(parent.event_id, event.event_id, "parent_child"))
 
     for index, event in enumerate(events):
@@ -180,7 +239,9 @@ def _build_graph(events: list[SilverEvent]) -> tuple[list[GraphNode], list[Graph
                 (
                     candidate
                     for candidate in events[index + 1 :]
-                    if target_agent and candidate.agent_name == target_agent
+                    if candidate.trace_id == event.trace_id
+                    and target_agent
+                    and candidate.agent_name == target_agent
                 ),
                 None,
             )
@@ -204,7 +265,7 @@ def _build_graph(events: list[SilverEvent]) -> tuple[list[GraphNode], list[Graph
                 (
                     candidate
                     for candidate in reversed(events[:index])
-                    if _fingerprint(candidate) == key
+                    if candidate.trace_id == event.trace_id and _fingerprint(candidate) == key
                 ),
                 None,
             )
@@ -222,7 +283,8 @@ def _build_graph(events: list[SilverEvent]) -> tuple[list[GraphNode], list[Graph
         previous = previous_by_fingerprint.get(fingerprint)
         if previous is not None:
             repeated_count += 1
-            edges.append(_edge(previous.event_id, event.event_id, "repeated_transition"))
+            if previous.trace_id == event.trace_id:
+                edges.append(_edge(previous.event_id, event.event_id, "repeated_transition"))
         previous_by_fingerprint[fingerprint] = event
     return nodes, _deduplicate_edges(edges), repeated_count
 
@@ -234,11 +296,10 @@ def _metrics(
     started_at: datetime,
     ended_at: datetime,
 ) -> RunMetrics:
-    input_tokens = sum(_number(event.attributes, _INPUT_TOKEN_KEYS, int) for event in events)
-    output_tokens = sum(_number(event.attributes, _OUTPUT_TOKEN_KEYS, int) for event in events)
-    declared_total = sum(_number(event.attributes, _TOTAL_TOKEN_KEYS, int) for event in events)
-    costs = [_optional_number(event.attributes, _COST_KEYS) for event in events]
-    declared_costs = [cost for cost in costs if cost is not None]
+    input_tokens = _sum_optional(events, _INPUT_TOKEN_KEYS, int)
+    output_tokens = _sum_optional(events, _OUTPUT_TOKEN_KEYS, int)
+    declared_total = _sum_optional(events, _TOTAL_TOKEN_KEYS, int)
+    estimated_cost = _sum_optional(events, _COST_KEYS, float)
     approval_wait = sum(
         _optional_number(event.attributes, _APPROVAL_WAIT_KEYS) or event.duration_ms
         for event in events
@@ -264,8 +325,14 @@ def _metrics(
         ),
         input_tokens=input_tokens,
         output_tokens=output_tokens,
-        total_tokens=declared_total or input_tokens + output_tokens,
-        estimated_cost=sum(declared_costs) if declared_costs else None,
+        total_tokens=(
+            declared_total
+            if declared_total is not None
+            else input_tokens + output_tokens
+            if input_tokens is not None and output_tokens is not None
+            else None
+        ),
+        estimated_cost=estimated_cost,
         approval_wait_ms=approval_wait,
         path_length=max((node.depth for node in nodes), default=-1) + 1,
         step_count=sum(event.event_type != "RUN" for event in events),
@@ -337,9 +404,15 @@ def _first_value(events: list[SilverEvent], field: str) -> Any:
     )
 
 
-def _number(attributes: dict[str, Any], keys: tuple[str, ...], cast: type[int]) -> int:
-    value = _optional_number(attributes, keys)
-    return cast(value) if value is not None else 0
+def _sum_optional(
+    events: list[SilverEvent], keys: tuple[str, ...], cast: type[int] | type[float]
+) -> int | float | None:
+    values = [
+        cast(value)
+        for event in events
+        if (value := _optional_number(event.attributes, keys)) is not None
+    ]
+    return sum(values) if values else None
 
 
 def _optional_number(attributes: dict[str, Any], keys: tuple[str, ...]) -> float | None:
@@ -348,6 +421,10 @@ def _optional_number(attributes: dict[str, Any], keys: tuple[str, ...]) -> float
         return float(value) if value is not None else None
     except (TypeError, ValueError):
         return None
+
+
+def _string_value(value: Any) -> str | None:
+    return str(value) if value is not None else None
 
 
 _INPUT_TOKEN_KEYS = ("gen_ai.usage.input_tokens", "llm.usage.prompt_tokens", "input_tokens")

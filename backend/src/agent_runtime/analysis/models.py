@@ -19,7 +19,7 @@ class BaselineKey:
             self.prompt_version or "*",
             self.model or "*",
         )
-        return "|".join(values)
+        return "|".join(str(value) for value in values)
 
 
 @dataclass(frozen=True, slots=True)

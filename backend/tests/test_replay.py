@@ -132,6 +132,18 @@ def test_runtime_diff_compares_configuration_execution_and_outcomes() -> None:
     assert status.assessment == "improved"
 
 
+def test_runtime_diff_preserves_missing_metrics_and_explicit_zero() -> None:
+    original = _run("missing", tokens=None, cost=None)
+    comparison = _run("zero", tokens=0, cost=0)
+
+    result = compare_runs(original, comparison)
+
+    tokens = next(item for item in result.outcomes if item.metric == "total_tokens")
+    cost = next(item for item in result.outcomes if item.metric == "estimated_cost")
+    assert (tokens.original, tokens.comparison, tokens.delta) == (None, 0, None)
+    assert (cost.original, cost.comparison, cost.delta) == (None, 0, None)
+
+
 def test_replay_and_diff_apis_persist_plan_and_report_capability() -> None:
     store = InMemoryTelemetryStore()
     source = _run("source", checkpoint=True)
@@ -233,6 +245,7 @@ def _run(
     retries=0,
     loops=0,
     tokens=0,
+    cost=0.01,
     status="succeeded",
     checkpoint=False,
 ):
@@ -288,10 +301,10 @@ def _run(
         handoff_count=0,
         repeated_transition_count=loops,
         error_count=0,
-        input_tokens=0,
-        output_tokens=0,
+        input_tokens=None if tokens is None else 0,
+        output_tokens=None if tokens is None else 0,
         total_tokens=tokens,
-        estimated_cost=0.01,
+        estimated_cost=cost,
         approval_wait_ms=0,
         path_length=2,
         step_count=len(nodes),

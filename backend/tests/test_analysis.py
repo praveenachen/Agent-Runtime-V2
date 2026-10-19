@@ -4,7 +4,7 @@ from pathlib import Path
 
 from httpx import ASGITransport, AsyncClient
 
-from agent_runtime.analysis.baselines import project_reference_baseline
+from agent_runtime.analysis.baselines import baseline_key, project_reference_baseline
 from agent_runtime.analysis.detectors import BaselineDetector, RuleConfig, RuleDetector
 from agent_runtime.analysis.models import DiagnosisNarrative, InferredCause
 from agent_runtime.analysis.service import AnalysisService
@@ -190,6 +190,28 @@ def test_run_materialization_refreshes_baseline_projection() -> None:
     assert projector.refresh_count == 1
 
 
+def test_integer_and_string_versions_have_equivalent_baseline_scopes() -> None:
+    integer_run = _run("integer", workflow_version=7, prompt_version=11)
+    string_run = _run("string", workflow_version="7", prompt_version="11")
+
+    assert baseline_key(integer_run) == baseline_key(string_run)
+    assert baseline_key(integer_run).workflow_version == "7"
+    assert baseline_key(integer_run).prompt_version == "11"
+
+
+def test_diagnosis_accepts_integer_producer_versions() -> None:
+    store = InMemoryTelemetryStore()
+    run = _run("integer", workflow_version=7, prompt_version=11, error_count=1, status="failed")
+    asyncio.run(store.upsert_gold_runs([run]))
+
+    diagnosis = asyncio.run(AnalysisService(store).diagnose(run.run_id))
+
+    assert diagnosis is not None
+    assert diagnosis.evidence.items
+    assert diagnosis.evidence.baseline_coverage[0].baseline_scope.workflow_version == "7"
+    assert diagnosis.evidence.baseline_coverage[0].baseline_scope.prompt_version == "11"
+
+
 class UngroundedExplainer:
     provider_name = "test-llm"
 
@@ -228,6 +250,8 @@ def _run(
     approval_wait_ms: float = 0,
     expected_validations: str | None = None,
     observed_validations: tuple[str, ...] = (),
+    workflow_version: object = "v1",
+    prompt_version: object = "prompt-v1",
 ) -> RunRecord:
     metrics = RunMetrics(
         total_duration_ms=total_duration_ms,
@@ -256,7 +280,7 @@ def _run(
             "event_type": "RUN",
             "attributes": run_attributes,
             "semantic_attributes": {},
-            "prompt_version": "prompt-v1",
+            "prompt_version": prompt_version,
             "model": "model-v1",
         }
     ]
@@ -299,7 +323,7 @@ def _run(
         organization_id=None,
         project_id=None,
         workflow_name="checkout",
-        workflow_version="v1",
+        workflow_version=workflow_version,  # type: ignore[arg-type]
         environment="test",
         graph=ExecutionGraph(nodes=nodes, edges=()),
         metrics=metrics,

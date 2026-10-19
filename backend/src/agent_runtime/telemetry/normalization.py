@@ -24,6 +24,10 @@ _GEN_AI_OPERATION_TYPES = {
 }
 
 _COMMON_ALIASES = {
+    "external_run_id": (
+        "agent.runtime.external_run_id",
+        "external_run_id",
+    ),
     "organization_id": ("agent.runtime.organization.id", "organization.id", "organization_id"),
     "project_id": ("agent.runtime.project.id", "project.id", "project_id"),
     "workflow_name": ("agent.runtime.workflow.name", "workflow.name", "workflow_name"),
@@ -39,8 +43,31 @@ _COMMON_ALIASES = {
         "gen_ai.response.model",
         "gen_ai.request.model",
         "model",
+        "agent.runtime.model.version",
+        "model.version",
+        "model_version",
     ),
     "git_commit": ("vcs.ref.head.revision", "git.commit", "git_commit"),
+}
+
+_VERSION_ALIASES = {
+    "agent.runtime.workflow.version": _COMMON_ALIASES["workflow_version"],
+    "agent.runtime.prompt.version": _COMMON_ALIASES["prompt_version"],
+    "agent.runtime.model.version": (
+        "agent.runtime.model.version",
+        "model.version",
+        "model_version",
+    ),
+    "agent.runtime.config.version": (
+        "agent.runtime.config.version",
+        "config.version",
+        "config_version",
+    ),
+    "agent.runtime.tool.version": (
+        "agent.runtime.tool.version",
+        "tool.version",
+        "tool_version",
+    ),
 }
 
 _SEMANTIC_ALIASES = {
@@ -105,7 +132,7 @@ class SemanticNormalizer:
     def normalize(self, record: BronzeSpanRecord) -> SilverEvent | None:
         resource_attributes = record.resource.get("attributes", {})
         span_attributes = record.span.get("attributes", {})
-        attributes = {**resource_attributes, **span_attributes}
+        attributes = _normalize_version_attributes({**resource_attributes, **span_attributes})
         event_type = _event_type(attributes)
         if event_type is None:
             return None
@@ -120,6 +147,9 @@ class SemanticNormalizer:
         self._trace_watermarks[record.trace_id] = max(previous_watermark or 0, start_nanos)
 
         common = {field: _first(attributes, aliases) for field, aliases in _COMMON_ALIASES.items()}
+        for field in ("workflow_version", "prompt_version", "model"):
+            if common[field] is not None:
+                common[field] = str(common[field])
         semantic = {
             field: value
             for field, aliases in _SEMANTIC_ALIASES.get(event_type, {}).items()
@@ -166,3 +196,16 @@ def _first(attributes: dict[str, Any], aliases: tuple[str, ...]) -> Any:
         if value is not None:
             return value
     return None
+
+
+def _normalize_version_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(attributes)
+    for canonical, aliases in _VERSION_ALIASES.items():
+        value = _first(attributes, aliases)
+        if value is None:
+            continue
+        normalized[canonical] = str(value)
+        for alias in aliases:
+            if alias in normalized:
+                normalized[alias] = str(normalized[alias])
+    return normalized

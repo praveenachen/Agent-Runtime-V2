@@ -19,6 +19,7 @@ class GraphNode:
     is_concurrent: bool
     retry_index: int | None = None
     semantic_attributes: dict[str, Any] = field(default_factory=dict)
+    trace_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,9 +48,9 @@ class RunMetrics:
     handoff_count: int
     repeated_transition_count: int
     error_count: int
-    input_tokens: int
-    output_tokens: int
-    total_tokens: int
+    input_tokens: int | None
+    output_tokens: int | None
+    total_tokens: int | None
     estimated_cost: float | None
     approval_wait_ms: float
     path_length: int
@@ -73,6 +74,8 @@ class RunRecord:
     graph: ExecutionGraph
     metrics: RunMetrics
     events: tuple[dict[str, Any], ...]
+    trace_ids: tuple[str, ...] = ()
+    external_run_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -85,6 +88,10 @@ class RunRecord:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "RunRecord":
+        payload = dict(payload)
+        payload.setdefault("trace_ids", (payload["trace_id"],))
+        payload["trace_ids"] = tuple(payload["trace_ids"])
+        payload.setdefault("external_run_id", None)
         graph = payload["graph"]
         return cls(
             **{

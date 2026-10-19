@@ -1,5 +1,7 @@
+import json
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from hashlib import sha256
 from typing import Any
 from uuid import uuid4
 
@@ -37,11 +39,13 @@ class ControlService:
         adapter: RuntimeControlAdapter,
         *,
         service_fail_closed: bool = True,
+        approval_ttl_seconds: int | None = 86_400,
     ) -> None:
         self._repository = repository
         self._authorizer = authorizer
         self._adapter = adapter
         self._service_fail_closed = service_fail_closed
+        self._approval_ttl_seconds = approval_ttl_seconds
         self._redactor = AttributeRedactor()
 
     async def list_policies(self, project_id: str, principal: str) -> list[PolicyRecord]:
@@ -118,12 +122,57 @@ class ControlService:
         matches.sort(key=lambda item: (-_ACTION_RANK[item.action], -item.priority, item.policy_id))
         action = matches[0].action if matches else PolicyAction.ALLOW
         reason = _reason(action, matches, failures)
-        approval = (
-            self._approval(context, matches[0], reason)
-            if action == PolicyAction.REQUIRE_APPROVAL
-            else None
-        )
         sanitized = self._redactor.redact(context.to_dict())
+        approval = None
+        approval_request_id = None
+        authorizing_approval_id = None
+        authorization_source = "direct_policy"
+        if action == PolicyAction.REQUIRE_APPROVAL:
+            winner = matches[0]
+            policy = next(item for item in policies if item.id == winner.policy_id)
+            policy_revision = _policy_revision(policy)
+            context_hash = _context_hash(sanitized)
+            existing = None
+            if context.control_reference:
+                existing = await self._repository.find_latest_bound_approval(
+                    project_id=context.project_id,
+                    policy_id=winner.policy_id,
+                    policy_revision=policy_revision,
+                    run_id=context.run_id,
+                    control_reference=context.control_reference,
+                    context_hash=context_hash,
+                )
+            if existing is not None and _is_expired(existing):
+                existing = await self._repository.expire_approval(existing.id)
+            if (
+                existing is not None
+                and existing.state == ApprovalState.APPROVED
+            ):
+                action = PolicyAction.ALLOW
+                authorization_source = "existing_approved_approval"
+                authorizing_approval_id = existing.id
+                reason = (
+                    "Execution authorized by an existing approved approval bound to the "
+                    "same policy revision, logical run, control reference, and evaluated context."
+                )
+            elif (
+                existing is not None
+                and existing.state == ApprovalState.PENDING
+            ):
+                authorization_source = "existing_pending_approval"
+                approval_request_id = existing.id
+                reason = "The same immutable action already has a pending approval."
+            else:
+                approval = self._approval(
+                    context,
+                    winner,
+                    reason,
+                    sanitized=sanitized,
+                    policy_revision=policy_revision,
+                    context_hash=context_hash,
+                )
+                approval_request_id = approval.id
+                authorization_source = "new_approval"
         decision_id = str(uuid4())
         decision = {
             "id": decision_id,
@@ -136,24 +185,35 @@ class ControlService:
             "evaluation_failed": bool(failures),
             "decision_made": not any(item.failure_behavior == "fail_closed" for item in failures),
             "failure_behavior": _failure_summary(failures),
+            "authorization_source": authorization_source,
+            "authorizing_approval_id": authorizing_approval_id,
         }
         await self._repository.record_evaluation(decision, approval)
         return EvaluationResult(
             decision_id, action, tuple(matches), tuple(failures), reason,
-            approval.id if approval else None, bool(failures), decision["decision_made"],
-            decision["failure_behavior"],
+            approval_request_id, bool(failures), decision["decision_made"],
+            decision["failure_behavior"], authorization_source, authorizing_approval_id,
         )
 
     async def list_approvals(
         self, project_id: str, state: str | None, principal: str
     ) -> list[ApprovalRecord]:
         self._authorizer.authorize(principal, project_id, "approval:list")
-        return await self._repository.list_approvals(project_id, state)
+        items = await self._repository.list_approvals(project_id, None)
+        current = []
+        for item in items:
+            if _is_expired(item) and item.state != ApprovalState.EXPIRED:
+                item = await self._repository.expire_approval(item.id)
+            if state is None or item.state.value == state:
+                current.append(item)
+        return current
 
     async def get_approval(self, approval_id: str, principal: str) -> ApprovalRecord | None:
         approval = await self._repository.get_approval(approval_id)
         if approval:
             self._authorizer.authorize(principal, approval.project_id, "approval:read")
+            if _is_expired(approval) and approval.state != ApprovalState.EXPIRED:
+                approval = await self._repository.expire_approval(approval.id)
         return approval
 
     async def resolve(
@@ -182,20 +242,37 @@ class ControlService:
         return ApprovalResolution(resolved, False, "not_configured")
 
     def _approval(
-        self, context: RuntimeContext, matched: PolicyMatch, reason: str
+        self,
+        context: RuntimeContext,
+        matched: PolicyMatch,
+        reason: str,
+        *,
+        sanitized: dict[str, Any],
+        policy_revision: str,
+        context_hash: str,
     ) -> ApprovalRecord:
-        now = datetime.now(UTC).isoformat()
+        created_at = datetime.now(UTC)
+        now = created_at.isoformat()
+        expires_at = (
+            created_at + timedelta(seconds=self._approval_ttl_seconds)
+            if self._approval_ttl_seconds is not None
+            else None
+        )
         summary = context.tool_name or context.action_name or context.operation or "proposed action"
         return ApprovalRecord(
             id=str(uuid4()), project_id=context.project_id, run_id=context.run_id,
             policy_id=matched.policy_id, state=ApprovalState.PENDING,
-            action_summary=summary, context=self._redactor.redact(context.to_dict()),
+            action_summary=summary, context=sanitized,
             workflow_name=context.workflow_name, agent_name=context.agent_name,
             tool_name=context.tool_name, operation=context.operation,
             confidence=context.confidence,
-            proposed_inputs=self._redactor.redact(context.proposed_inputs),
+            proposed_inputs=sanitized["proposed_inputs"],
             match_reason=reason, reviewer_reference=None, resolved_at=None,
             integration_reference=None, created_at=now, updated_at=now,
+            policy_revision=policy_revision,
+            control_reference=context.control_reference,
+            context_hash=context_hash,
+            expires_at=expires_at.isoformat() if expires_at else None,
         )
 
     def _service_failure(self) -> EvaluationResult:
@@ -225,6 +302,40 @@ def _failure_summary(failures: list[PolicyMatch]) -> str | None:
         return None
     has_closed_failure = any(item.failure_behavior == "fail_closed" for item in failures)
     return "fail_closed" if has_closed_failure else "fail_open"
+
+
+def _policy_revision(policy: PolicyRecord) -> str:
+    relevant = {
+        "id": policy.id,
+        "project_id": policy.project_id,
+        "enabled": policy.enabled,
+        "priority": policy.priority,
+        "action": policy.action.value,
+        "conditions": policy.conditions,
+        "fail_closed": policy.fail_closed,
+        "updated_at": policy.updated_at,
+    }
+    return _hash(relevant)
+
+
+def _context_hash(sanitized_context: dict[str, Any]) -> str:
+    # Hash exactly the sanitized context supplied to deterministic policy
+    # evaluation and persisted with the decision; raw secrets never enter it.
+    return _hash(sanitized_context)
+
+
+def _hash(value: dict[str, Any]) -> str:
+    canonical = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _is_expired(approval: ApprovalRecord) -> bool:
+    if approval.expires_at is None:
+        return False
+    expires_at = datetime.fromisoformat(approval.expires_at.replace("Z", "+00:00"))
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=UTC)
+    return expires_at <= datetime.now(UTC)
 
 
 __all__ = ["ApprovalConflictError", "ControlService"]

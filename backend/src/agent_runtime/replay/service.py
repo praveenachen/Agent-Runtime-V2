@@ -162,15 +162,15 @@ def extract_checkpoints(run: RunRecord) -> tuple[SemanticCheckpoint, ...]:
             SemanticCheckpoint(
                 checkpoint_id=identifier,
                 run_id=run.run_id,
-                trace_id=run.trace_id,
+                trace_id=str(event.get("trace_id") or run.trace_id),
                 span_id=str(event["span_id"]),
                 timestamp=str(event["timestamp"]),
                 integration=_value(attributes, "agent.runtime.integration"),
                 workflow_name=run.workflow_name,
                 environment=run.environment,
-                workflow_version=run.workflow_version,
-                prompt_version=event.get("prompt_version"),
-                model=event.get("model"),
+                workflow_version=_optional_text(run.workflow_version),
+                prompt_version=_optional_text(event.get("prompt_version")),
+                model=_optional_text(event.get("model")),
                 state_reference=(
                     _value(semantic, "checkpoint_ref")
                     or _value(semantic, "state_ref")
@@ -238,6 +238,10 @@ def _ordered_nodes(run: RunRecord) -> list[GraphNode]:
 
 def _value(values: dict[str, Any], key: str) -> str | None:
     value = values.get(key)
+    return str(value) if value is not None else None
+
+
+def _optional_text(value: Any) -> str | None:
     return str(value) if value is not None else None
 
 

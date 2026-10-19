@@ -154,6 +154,119 @@ def test_approval_creation_redaction_accept_reject_and_idempotency() -> None:
     assert rejected is not None and rejected.approval.state == ApprovalState.REJECTED
 
 
+def test_approved_same_action_retry_is_authorized_idempotently() -> None:
+    service, repository = _approval_service()
+    context = _context(
+        side_effect=True,
+        operation="send",
+        control_reference="relay-action-1",
+        proposed_inputs={"recipient": "dev@example.com", "api_key": "secret-value"},
+    )
+    initial = asyncio.run(service.evaluate(context, "test"))
+    asyncio.run(
+        service.resolve(initial.approval_request_id, ApprovalState.APPROVED, "reviewer", "test")
+    )
+
+    first_retry = asyncio.run(service.evaluate(context, "test"))
+    second_retry = asyncio.run(service.evaluate(context, "test"))
+
+    assert first_retry.action == second_retry.action == PolicyAction.ALLOW
+    assert first_retry.authorization_source == "existing_approved_approval"
+    assert first_retry.authorizing_approval_id == initial.approval_request_id
+    assert second_retry.authorizing_approval_id == initial.approval_request_id
+    assert first_retry.approval_request_id is None
+    assert len(repository.approvals) == 1
+    approval = repository.approvals[initial.approval_request_id]
+    assert approval.context_hash
+    assert approval.policy_revision
+    assert approval.control_reference == "relay-action-1"
+    assert approval.expires_at is not None
+    assert "secret-value" not in approval.context_hash
+
+
+def test_changed_control_reference_requires_new_approval() -> None:
+    service, repository, context, approval_id = _approved_action()
+
+    result = asyncio.run(
+        service.evaluate(replace(context, control_reference="relay-action-2"), "test")
+    )
+
+    assert result.action == PolicyAction.REQUIRE_APPROVAL
+    assert result.authorization_source == "new_approval"
+    assert result.approval_request_id != approval_id
+    assert len(repository.approvals) == 2
+
+
+def test_changed_sanitized_context_hash_requires_new_approval() -> None:
+    service, repository, context, approval_id = _approved_action()
+
+    result = asyncio.run(service.evaluate(replace(context, operation="archive"), "test"))
+
+    assert result.action == PolicyAction.REQUIRE_APPROVAL
+    assert result.approval_request_id != approval_id
+    assert repository.approvals[result.approval_request_id].context_hash != (
+        repository.approvals[approval_id].context_hash
+    )
+
+
+def test_policy_revision_change_requires_new_approval() -> None:
+    service, repository, context, approval_id = _approved_action()
+    current = repository.policies["approval"]
+    repository.policies["approval"] = replace(
+        current, updated_at="2099-01-01T00:00:00+00:00"
+    )
+
+    result = asyncio.run(service.evaluate(context, "test"))
+
+    assert result.action == PolicyAction.REQUIRE_APPROVAL
+    assert result.approval_request_id != approval_id
+    assert repository.approvals[result.approval_request_id].policy_revision != (
+        repository.approvals[approval_id].policy_revision
+    )
+
+
+def test_expired_approval_requires_new_approval() -> None:
+    service, repository, context, approval_id = _approved_action()
+    repository.approvals[approval_id] = replace(
+        repository.approvals[approval_id], expires_at="2000-01-01T00:00:00+00:00"
+    )
+
+    result = asyncio.run(service.evaluate(context, "test"))
+
+    assert result.action == PolicyAction.REQUIRE_APPROVAL
+    assert result.approval_request_id != approval_id
+    assert repository.approvals[approval_id].state == ApprovalState.EXPIRED
+
+
+def test_rejected_approval_does_not_authorize_retry() -> None:
+    service, repository = _approval_service()
+    context = _context(side_effect=True, control_reference="relay-action-1")
+    initial = asyncio.run(service.evaluate(context, "test"))
+    asyncio.run(
+        service.resolve(initial.approval_request_id, ApprovalState.REJECTED, "reviewer", "test")
+    )
+
+    result = asyncio.run(service.evaluate(context, "test"))
+
+    assert result.action == PolicyAction.REQUIRE_APPROVAL
+    assert result.authorization_source == "new_approval"
+    assert result.authorizing_approval_id is None
+    assert len(repository.approvals) == 2
+
+
+def test_approved_binding_is_project_isolated() -> None:
+    service, repository, context, approval_id = _approved_action()
+    repository.approvals[approval_id] = replace(
+        repository.approvals[approval_id], project_id=OTHER_PROJECT
+    )
+
+    result = asyncio.run(service.evaluate(context, "test"))
+
+    assert result.action == PolicyAction.REQUIRE_APPROVAL
+    assert result.authorization_source == "new_approval"
+    assert result.approval_request_id != approval_id
+
+
 def test_control_apis_cover_management_evaluation_and_approval() -> None:
     repository = InMemoryControlRepository()
     app = create_app(
@@ -175,11 +288,15 @@ def test_control_apis_cover_management_evaluation_and_approval() -> None:
                 f"/api/v1/policies/{policy_id}/enabled", json={"enabled": False}
             )
             await client.patch(f"/api/v1/policies/{policy_id}/enabled", json={"enabled": True})
-            evaluated = await client.post("/api/v1/policies/evaluate", json={
+            evaluation_payload = {
                 "project_id": PROJECT, "run_id": "run-1", "tool_name": "email",
                 "operation": "send", "side_effect": True,
                 "proposed_inputs": {"password": "do-not-store"},
-            })
+                "control_reference": "relay-action-1",
+            }
+            evaluated = await client.post(
+                "/api/v1/policies/evaluate", json=evaluation_payload
+            )
             approval_id = evaluated.json()["approval_request_id"]
             pending = await client.get(
                 "/api/v1/approvals", params={"project_id": PROJECT, "state": "pending"}
@@ -191,16 +308,25 @@ def test_control_apis_cover_management_evaluation_and_approval() -> None:
                 f"/api/v1/approvals/{approval_id}/approve",
                 json={"reviewer_reference": "local"},
             )
-            return created, listing, disabled, evaluated, pending, count, approved
+            retry = await client.post(
+                "/api/v1/policies/evaluate", json=evaluation_payload
+            )
+            return created, listing, disabled, evaluated, pending, count, approved, retry
 
     responses = asyncio.run(requests())
     assert all(item.status_code in {200, 201} for item in responses)
     assert responses[1].json()["total"] == 1
     assert responses[2].json()["enabled"] is False
     assert responses[3].json()["action"] == "REQUIRE_APPROVAL"
+    assert responses[3].json()["authorization_source"] == "new_approval"
     assert responses[4].json()["items"][0]["proposed_inputs"]["password"] == "[REDACTED]"
     assert responses[5].json()["count"] == 1
     assert responses[6].json()["state"] == "approved"
+    assert responses[7].json()["action"] == "ALLOW"
+    assert responses[7].json()["authorization_source"] == "existing_approved_approval"
+    assert responses[7].json()["authorizing_approval_id"] == responses[3].json()[
+        "approval_request_id"
+    ]
 
 
 def _service():
@@ -209,6 +335,29 @@ def _service():
         ControlService(repository, LocalPermissiveAuthorizer(), NoopRuntimeControlAdapter()),
         repository,
     )
+
+
+def _approval_service():
+    service, repository = _service()
+    repository.policies["approval"] = _policy(
+        "approval", PolicyAction.REQUIRE_APPROVAL, {"side_effect": True}
+    )
+    return service, repository
+
+
+def _approved_action():
+    service, repository = _approval_service()
+    context = _context(
+        side_effect=True,
+        operation="send",
+        control_reference="relay-action-1",
+        proposed_inputs={"recipient": "dev@example.com"},
+    )
+    initial = asyncio.run(service.evaluate(context, "test"))
+    asyncio.run(
+        service.resolve(initial.approval_request_id, ApprovalState.APPROVED, "reviewer", "test")
+    )
+    return service, repository, context, initial.approval_request_id
 
 
 def _policy(

@@ -39,12 +39,16 @@ SILVER_DELTA_COLUMNS = {
     "observed_lag_ms": "DOUBLE",
     "is_late": "BOOLEAN",
     "is_out_of_order": "BOOLEAN",
+    "external_run_id": "STRING",
     "event_json": "STRING",
 }
 
 GOLD_RUNS_DELTA_COLUMNS = {
     "run_id": "STRING",
     "trace_id": "STRING",
+    "trace_ids_json": "STRING",
+    "external_run_id": "STRING",
+    "project_id": "STRING",
     "started_at": "TIMESTAMP",
     "ended_at": "TIMESTAMP",
     "status": "STRING",
@@ -131,8 +135,11 @@ class DatabricksTelemetryStore:
         return [RunRecord.from_dict(json.loads(row["run_json"])) for row in rows]
 
     async def get_gold_run(self, run_id: str) -> RunRecord | None:
-        rows = await self._writer.query_records(self._gold_runs_table, trace_ids=[run_id])
-        return RunRecord.from_dict(json.loads(rows[0]["run_json"])) if rows else None
+        # Logical run IDs are not necessarily OTel trace IDs. Preserve the
+        # connector interface and select the Gold record by its actual key.
+        rows = await self._writer.query_records(self._gold_runs_table)
+        row = next((item for item in rows if item.get("run_id") == run_id), None)
+        return RunRecord.from_dict(json.loads(row["run_json"])) if row else None
 
     async def upsert_gold_baselines(self, records: Sequence[BaselineRecord]) -> AppendResult:
         return await self._writer.merge_records(
@@ -194,6 +201,7 @@ def _silver_row(record: SilverEvent) -> dict[str, Any]:
         "observed_lag_ms": record.observed_lag_ms,
         "is_late": record.is_late,
         "is_out_of_order": record.is_out_of_order,
+        "external_run_id": record.external_run_id,
         "event_json": json.dumps(record.to_dict(), separators=(",", ":"), sort_keys=True),
     }
 
@@ -202,6 +210,9 @@ def _gold_run_row(record: RunRecord) -> dict[str, Any]:
     return {
         "run_id": record.run_id,
         "trace_id": record.trace_id,
+        "trace_ids_json": json.dumps(record.trace_ids, separators=(",", ":")),
+        "external_run_id": record.external_run_id,
+        "project_id": record.project_id,
         "started_at": record.started_at,
         "ended_at": record.ended_at,
         "status": record.status,
