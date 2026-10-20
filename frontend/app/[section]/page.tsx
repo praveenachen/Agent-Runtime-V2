@@ -19,10 +19,11 @@ export default async function SectionPage({ params }: { params: Promise<{ sectio
           <h1>{content.title}</h1>
         </div>
       </header>
-      <Card title="No configurable settings" eyebrow="Workspace">
+      <Card title="Workspace configuration" eyebrow="Settings">
         <div className="empty-state compact">
+          <span className="state-icon">⌁</span>
           <strong>{content.description}</strong>
-          <p>Agent Runtime shows only settings backed by an implemented product contract.</p>
+          <p>Runtime configuration is environment-managed. This screen intentionally exposes no controls until they are backed by an implemented product contract.</p>
         </div>
       </Card>
     </main>

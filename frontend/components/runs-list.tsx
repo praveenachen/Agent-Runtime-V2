@@ -36,6 +36,10 @@ export function RunsList() {
     const matchesQuery = !needle || [run.name, run.run_id, run.external_run_id, run.workflow_name, run.environment].some((value) => value?.toLowerCase().includes(needle));
     return matchesStatus && matchesWorkflow && matchesEnvironment && matchesQuery;
   }), [runs, status, workflow, environment, query]);
+  const succeeded = runs.filter((run) => run.status.toLowerCase() === "succeeded").length;
+  const failed = runs.filter((run) => run.status.toLowerCase() === "failed").length;
+  const averageDuration = runs.length ? runs.reduce((total, run) => total + run.metrics.total_duration_ms, 0) / runs.length : null;
+  const traceCount = runs.reduce((total, run) => total + run.trace_ids.length, 0);
 
   const retry = () => { setState({ kind: "loading" }); setReload((value) => value + 1); };
   const clearFilters = () => { setStatus("all"); setWorkflow("all"); setEnvironment("all"); setQuery(""); };
@@ -44,14 +48,20 @@ export function RunsList() {
   if (state.kind === "error") return <section className="state-panel" role="alert"><span className="state-icon danger"><Icon name="alert" /></span><h2>Runs are unavailable</h2><p>{state.message} Check that the local backend is running.</p><button className="button-secondary" onClick={retry} type="button">Try again</button></section>;
 
   return <>
+    <section className="runs-summary" aria-label="Run history summary"><article><span>Total runs</span><strong>{runs.length}</strong><small>Logical workflows</small></article><article className="summary-success"><span>Succeeded</span><strong>{succeeded}</strong><small>{runs.length ? `${Math.round((succeeded / runs.length) * 100)}% of visible history` : "—"}</small></article><article className="summary-danger"><span>Failed</span><strong>{failed}</strong><small>{runs.length ? `${Math.round((failed / runs.length) * 100)}% of visible history` : "—"}</small></article><article><span>Average duration</span><strong>{averageDuration === null ? "—" : formatDuration(averageDuration)}</strong><small>{traceCount} source trace{traceCount === 1 ? "" : "s"}</small></article></section>
     <section className="filter-bar" aria-label="Run filters">
-      <label className="search-field"><Icon name="search" /><span className="sr-only">Search runs</span><input onChange={(event) => setQuery(event.target.value)} placeholder="Search logical run, workflow, or environment" value={query} /></label>
       <label><span>Status</span><select onChange={(event) => setStatus(event.target.value)} value={status}><option value="all">All statuses</option>{[...new Set(runs.map((run) => run.status))].map((value) => <option key={value}>{value}</option>)}</select></label>
       <label><span>Workflow</span><select onChange={(event) => setWorkflow(event.target.value)} value={workflow}><option value="all">All workflows</option>{workflows.map((value) => <option key={value}>{value}</option>)}</select></label>
       <label><span>Environment</span><select onChange={(event) => setEnvironment(event.target.value)} value={environment}><option value="all">All environments</option>{environments.map((value) => <option key={value}>{value}</option>)}</select></label>
+      <label className="search-field"><Icon name="search" /><span className="sr-only">Search runs</span><input onChange={(event) => setQuery(event.target.value)} placeholder="Search run, workflow, or environment" value={query} /></label>
       <span className="result-count">{filtered.length} of {runs.length}</span>
     </section>
     {filtered.length === 0 ? <section className="state-panel"><span className="state-icon"><Icon name={runs.length ? "search" : "activity"} /></span><h2>{runs.length ? "No runs match these filters" : "No runs yet"}</h2><p>{runs.length ? "Clear filters or broaden the search to find another execution." : "Send an OTLP trace through the Collector to create the first run."}</p>{runs.length > 0 && <button className="button-secondary" onClick={clearFilters} type="button">Clear filters</button>}</section> :
-      <div className="run-table-wrap"><table className="run-table"><thead><tr><th>Run</th><th>Status</th><th>Environment</th><th>Started</th><th>Duration</th><th>Steps</th><th>Tokens</th><th aria-label="Open run" /></tr></thead><tbody>{filtered.map((run) => <tr key={run.run_id}><td><Link className="run-link" href={`/runs/${run.run_id}`}><strong>{run.name}</strong><span className="mono">{run.external_run_id ?? run.run_id}</span><small>{run.workflow_name ?? "Unspecified workflow"} · {run.trace_ids.length} trace{run.trace_ids.length === 1 ? "" : "s"}</small></Link></td><td><RunStatus status={run.status} /></td><td><span className="environment-label"><i />{run.environment ?? "unknown"}</span></td><td className="mono subtle">{formatDate(run.started_at)}</td><td className="mono">{formatDuration(run.metrics.total_duration_ms)}</td><td className="mono">{run.metrics.step_count}</td><td className="mono">{run.metrics.total_tokens == null ? "—" : run.metrics.total_tokens.toLocaleString()}</td><td><Link className="row-arrow" href={`/runs/${run.run_id}`} aria-label={`Open ${run.name}`}><Icon name="arrow" /></Link></td></tr>)}</tbody></table></div>}
+      <div className="run-table-wrap"><table className="run-table"><thead><tr><th>Run / workflow</th><th>Status</th><th>Environment</th><th>Started</th><th>Duration</th><th>Steps</th><th>Tokens</th><th aria-label="Open run" /></tr></thead><tbody>{filtered.map((run) => <tr key={run.run_id}><td><Link className="run-link" href={`/runs/${run.run_id}`}><strong>{runTitle(run)}</strong><span>{run.workflow_name ?? "Workflow not recorded"} · v{run.workflow_version ?? "—"}</span><small className="mono">{run.external_run_id ?? run.run_id} · {run.trace_ids.length} trace{run.trace_ids.length === 1 ? "" : "s"}</small></Link></td><td><RunStatus status={run.status} /></td><td><span className="environment-label"><i />{run.environment ?? "—"}</span></td><td className="mono subtle">{formatDate(run.started_at)}</td><td className="mono">{formatDuration(run.metrics.total_duration_ms)}</td><td className="mono">{run.metrics.step_count}</td><td className="mono">{run.metrics.total_tokens == null ? "—" : run.metrics.total_tokens.toLocaleString()}</td><td><Link className="row-arrow" href={`/runs/${run.run_id}`} aria-label={`Open ${runTitle(run)}`}><Icon name="arrow" /></Link></td></tr>)}</tbody></table></div>}
   </>;
+}
+
+function runTitle(run: RunSummary) {
+  if (run.name && run.name.toLowerCase() !== "untitled run") return run.name;
+  return run.workflow_name ?? run.external_run_id ?? `Trace ${run.trace_id.slice(0, 12)}`;
 }
