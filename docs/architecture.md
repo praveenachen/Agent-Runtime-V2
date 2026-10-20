@@ -475,8 +475,13 @@ Agent proposes action
 → pause
 → human reviews action/context/confidence
 → approve or reject
-→ resume or stop
+→ caller manually retries or stops
+→ approved retry is matched to the immutable action context
 ```
+
+Agent Runtime does not automatically resume the workflow. The application retains its checkpoint
+and control reference. An unexpired approval can authorize only the same project, policy revision,
+logical run, control reference, and sanitized evaluated context.
 
 ## Do not implement in v1
 - autonomous prompt rewriting

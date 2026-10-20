@@ -78,7 +78,7 @@ export function RuntimeCompare() {
   return (
     <main className="page-stack compare-page">
       <header className="page-heading">
-        <div><p className="eyebrow">Debugging replay</p><h1>Runtime Diff</h1><p>Compare completed behavior, then prepare a safety-reviewed replay plan.</p></div>
+        <div><p className="eyebrow">Debugging replay</p><h1>Runtime Diff</h1><p>Compare configuration, semantic execution, and recorded outcomes across complete logical runs.</p></div>
         <span className="safety-note"><Icon name="shield" /> Side effects default safe</span>
       </header>
 
@@ -105,14 +105,15 @@ export function RuntimeCompare() {
 }
 
 function RunSelect({ label: title, value, runs, onChange }: { label: string; value: string; runs: RunSummary[]; onChange: (value: string) => void }) {
-  return <label className="run-selector"><span>{title}</span><select value={value} onChange={(event) => onChange(event.target.value)}><option value="">Select a run</option>{runs.map((run) => <option key={run.run_id} value={run.run_id}>{run.name} · {run.status}</option>)}</select><small>{value || "No run selected"}</small></label>;
+  const selected = runs.find((run) => run.run_id === value);
+  return <label className="run-selector"><span>{title}</span><select value={value} onChange={(event) => onChange(event.target.value)}><option value="">Select a run</option>{runs.map((run) => <option key={run.run_id} value={run.run_id}>{run.name} · {run.workflow_version ? `v${run.workflow_version}` : "version not recorded"} · {run.status}</option>)}</select><small>{(selected?.external_run_id ?? value) || "No run selected"}</small></label>;
 }
 
 function DiffView({ diff }: { diff: RuntimeDiff }) {
   return <div className="diff-stack">
     <section className="diff-card"><div className="section-heading"><div><p className="eyebrow">Configuration</p><h2>What changed</h2></div></div><div className="config-diff">{diff.configuration.map((item) => <div className={item.changed ? "changed" : ""} key={item.field}><strong>{label(item.field)}</strong><span>{display(item.original)}</span><i>→</i><span>{display(item.comparison)}</span></div>)}</div></section>
-    <section className="diff-card"><div className="section-heading"><div><p className="eyebrow">Execution</p><h2>Before and after paths</h2></div><div className="delta-pills"><span>Retries {signed(diff.execution.retry_delta)}</span><span>Loops {signed(diff.execution.repeated_transition_delta)}</span></div></div><div className="path-compare"><Path title="Original" values={diff.execution.original_sequence} tone="removed" /><Path title="Comparison" values={diff.execution.comparison_sequence} tone="added" /></div><div className="structural-deltas"><Delta title="Added steps" values={diff.execution.added_steps} /><Delta title="Removed steps" values={diff.execution.removed_steps} /><Delta title="Added tools" values={diff.execution.added_tools} /><Delta title="Removed tools" values={diff.execution.removed_tools} /><Delta title="Added handoffs" values={diff.execution.added_handoffs} /><Delta title="Removed handoffs" values={diff.execution.removed_handoffs} /></div></section>
-    <section className="diff-card"><div className="section-heading"><div><p className="eyebrow">Outcomes</p><h2>Metric movement</h2></div></div><div className="outcome-grid">{diff.outcomes.map((item) => <div className={`outcome ${item.assessment}`} key={item.metric}><span>{label(item.metric)}</span><strong>{metric(item.metric, item.original)} → {metric(item.metric, item.comparison)}</strong><small>{item.assessment}{item.percent_change === null ? "" : ` · ${signed(item.percent_change)}%`}</small></div>)}</div></section>
+    <section className="diff-card"><div className="section-heading"><div><p className="eyebrow">Execution</p><h2>Semantic paths and structural changes</h2><p className="section-copy">Added and removed steps describe recorded behavior, independent of service-level trace boundaries.</p></div><div className="delta-pills"><span>Retries {signed(diff.execution.retry_delta)}</span><span>Loops {signed(diff.execution.repeated_transition_delta)}</span></div></div><div className="path-compare"><Path title="Original" values={diff.execution.original_sequence} tone="removed" /><Path title="Comparison" values={diff.execution.comparison_sequence} tone="added" /></div><div className="structural-deltas"><Delta title="Added steps" values={diff.execution.added_steps} /><Delta title="Removed steps" values={diff.execution.removed_steps} /><Delta title="Added tools" values={diff.execution.added_tools} /><Delta title="Removed tools" values={diff.execution.removed_tools} /><Delta title="Added handoffs" values={diff.execution.added_handoffs} /><Delta title="Removed handoffs" values={diff.execution.removed_handoffs} /></div></section>
+    <section className="diff-card"><div className="section-heading"><div><p className="eyebrow">Outcomes</p><h2>Recorded metric movement</h2><p className="section-copy">A dash means the producer did not emit the metric; it does not mean zero.</p></div></div><div className="outcome-grid">{diff.outcomes.map((item) => <div className={`outcome ${item.assessment}`} key={item.metric}><span>{label(item.metric)}</span><strong>{metric(item.metric, item.original)} → {metric(item.metric, item.comparison)}</strong><small>{item.assessment}{item.percent_change === null ? "" : ` · ${signed(item.percent_change)}%`}</small></div>)}</div></section>
   </div>;
 }
 
