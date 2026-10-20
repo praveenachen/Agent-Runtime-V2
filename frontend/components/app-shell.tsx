@@ -16,9 +16,11 @@ const navigation: Array<[string, string, IconName]> = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { projectId } = useProjectId();
+  const { projectId, setProjectId } = useProjectId();
   const [approvalState, setApprovalState] = useState<{ projectId: string; items: Approval[] }>({ projectId: "", items: [] });
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+  const [projectDraft, setProjectDraft] = useState("");
   const approvals = approvalState.projectId === projectId ? approvalState.items : [];
 
   useEffect(() => {
@@ -42,7 +44,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
       <div className="workspace">
         <header className="topbar">
-          <Link className="project-select" href="/policies"><Icon name="shield" /><span>{projectId ? `Project ${projectId.slice(0, 8)}` : "Select project"}</span><small>Control scope</small></Link>
+          <div className="project-switcher">
+            <button className="project-select" aria-expanded={projectMenuOpen} aria-haspopup="dialog" onClick={() => { setProjectDraft(projectId); setProjectMenuOpen((open) => !open); }} type="button"><Icon name="shield" /><span>{projectId ? `Project ${projectId.slice(0, 8)}` : "Select project"}</span><small>{projectId ? "Shared control scope" : "Set control scope"}</small></button>
+            {projectMenuOpen && <form className="project-menu" onSubmit={(event) => { event.preventDefault(); if (!projectDraft.trim()) return; setProjectId(projectDraft); setProjectMenuOpen(false); }}>
+              <label htmlFor="global-project-id"><strong>Project scope</strong><small>Used by Overview, Policies, and Approvals.</small></label>
+              <input autoFocus id="global-project-id" onChange={(event) => setProjectDraft(event.target.value)} placeholder="Project UUID" value={projectDraft} />
+              <div><button className="button-ghost" onClick={() => setProjectMenuOpen(false)} type="button">Cancel</button><button className="button-secondary" disabled={!projectDraft.trim()} type="submit">Use project</button></div>
+            </form>}
+          </div>
           <div className="topbar-actions">
             <Link className="search-trigger" href="/runs" aria-label="Search runs"><Icon name="search" /><span>Search runs</span><kbd>⌘ K</kbd></Link>
             <div className="notification-wrap">

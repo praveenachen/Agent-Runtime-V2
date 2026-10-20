@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { RunStatus } from "@/components/run-status";
 import { Icon } from "@/components/ui/icon";
 import { fetchRuns, formatDate, formatDuration, type RunSummary } from "@/lib/api";
+import { runDisplayName } from "@/lib/run-display";
 
 type LoadState = { kind: "loading" } | { kind: "error"; message: string } | { kind: "ready"; runs: RunSummary[] };
 
@@ -57,11 +58,6 @@ export function RunsList() {
       <span className="result-count">{filtered.length} of {runs.length}</span>
     </section>
     {filtered.length === 0 ? <section className="state-panel"><span className="state-icon"><Icon name={runs.length ? "search" : "activity"} /></span><h2>{runs.length ? "No runs match these filters" : "No runs yet"}</h2><p>{runs.length ? "Clear filters or broaden the search to find another execution." : "Send an OTLP trace through the Collector to create the first run."}</p>{runs.length > 0 && <button className="button-secondary" onClick={clearFilters} type="button">Clear filters</button>}</section> :
-      <div className="run-table-wrap"><table className="run-table"><thead><tr><th>Run / workflow</th><th>Status</th><th>Environment</th><th>Started</th><th>Duration</th><th>Steps</th><th>Tokens</th><th aria-label="Open run" /></tr></thead><tbody>{filtered.map((run) => <tr key={run.run_id}><td><Link className="run-link" href={`/runs/${run.run_id}`}><strong>{runTitle(run)}</strong><span>{run.workflow_name ?? "Workflow not recorded"} · v{run.workflow_version ?? "—"}</span><small className="mono">{run.external_run_id ?? run.run_id} · {run.trace_ids.length} trace{run.trace_ids.length === 1 ? "" : "s"}</small></Link></td><td><RunStatus status={run.status} /></td><td><span className="environment-label"><i />{run.environment ?? "—"}</span></td><td className="mono subtle">{formatDate(run.started_at)}</td><td className="mono">{formatDuration(run.metrics.total_duration_ms)}</td><td className="mono">{run.metrics.step_count}</td><td className="mono">{run.metrics.total_tokens == null ? "—" : run.metrics.total_tokens.toLocaleString()}</td><td><Link className="row-arrow" href={`/runs/${run.run_id}`} aria-label={`Open ${runTitle(run)}`}><Icon name="arrow" /></Link></td></tr>)}</tbody></table></div>}
+      <div className="run-table-wrap"><table className="run-table"><thead><tr><th>Run / workflow</th><th>Status</th><th>Environment</th><th>Started</th><th>Duration</th><th>Steps</th><th>Tokens</th><th aria-label="Open run" /></tr></thead><tbody>{filtered.map((run) => <tr key={run.run_id}><td><Link className="run-link" href={`/runs/${run.run_id}`}><strong>{runDisplayName(run)}</strong><span>{run.workflow_name ?? "Workflow not recorded"} · v{run.workflow_version ?? "—"}</span><small className="mono">{run.external_run_id ?? run.run_id} · {run.trace_ids.length} trace{run.trace_ids.length === 1 ? "" : "s"}</small></Link></td><td><RunStatus status={run.status} /></td><td><span className="environment-label"><i />{run.environment ?? "—"}</span></td><td className="mono subtle">{formatDate(run.started_at)}</td><td className="mono">{formatDuration(run.metrics.total_duration_ms)}</td><td className="mono">{run.metrics.step_count}</td><td className="mono">{run.metrics.total_tokens == null ? "—" : run.metrics.total_tokens.toLocaleString()}</td><td><Link className="row-arrow" href={`/runs/${run.run_id}`} aria-label={`Open ${runDisplayName(run)}`}><Icon name="arrow" /></Link></td></tr>)}</tbody></table></div>}
   </>;
-}
-
-function runTitle(run: RunSummary) {
-  if (run.name && run.name.toLowerCase() !== "untitled run") return run.name;
-  return run.workflow_name ?? run.external_run_id ?? `Trace ${run.trace_id.slice(0, 12)}`;
 }
