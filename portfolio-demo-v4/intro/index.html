@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=1920, height=1080" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+<style>
+:root{--blue:#8ab4ff;--muted:#92a2bb}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:1920px;height:1080px;overflow:hidden;background:#060b14}
+#root{position:relative;width:1920px;height:1080px;background:radial-gradient(1400px 800px at 50% 40%,#101b30 0%,#060b14 70%);font-family:Inter,Arial,sans-serif;color:#edf2fa;overflow:hidden}
+.grid{position:absolute;left:-80px;top:-80px;width:2080px;height:1240px;background-image:linear-gradient(rgba(138,180,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(138,180,255,.05) 1px,transparent 1px);background-size:80px 80px;-webkit-mask-image:radial-gradient(closest-side at 50% 45%,#000 25%,transparent 100%)}
+.center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.mark{width:120px;height:120px;border-radius:30px;border:4px solid var(--blue);display:flex;align-items:center;justify-content:center;font-family:"JetBrains Mono",monospace;font-size:62px;font-weight:600;color:var(--blue);background:rgba(138,180,255,.08);box-shadow:0 0 80px rgba(138,180,255,.3)}
+.name{font-size:124px;font-weight:700;letter-spacing:-.04em;line-height:1;margin-top:30px}
+.flow{font-family:"JetBrains Mono",monospace;font-size:27px;font-weight:500;color:var(--muted);margin-top:30px;letter-spacing:.04em}
+</style></head><body>
+<div id="root" data-composition-id="main" data-start="0" data-duration="2.4" data-width="1920" data-height="1080">
+<div id="g" class="grid"></div>
+<div class="center"><div id="m" class="mark">&gt;_</div><div id="n" class="name">Agent Runtime</div><div id="f" class="flow">Observe &rarr; Inspect &rarr; Diagnose &rarr; Control &rarr; Compare</div></div>
+</div>
+<script>
+window.__timelines=window.__timelines||{};
+const tl=gsap.timeline({paused:true});
+tl.fromTo("#g",{x:0},{x:-30,duration:2.4,ease:"none"},0);
+tl.fromTo("#m",{opacity:0,scale:.88},{opacity:1,scale:1,duration:.5,ease:"back.out(1.6)"},0.1);
+tl.fromTo("#n",{opacity:0,y:20},{opacity:1,y:0,duration:.45,ease:"power3.out"},0.3);
+tl.fromTo("#f",{opacity:0},{opacity:1,duration:.4},0.7);
+window.__timelines["main"]=tl;tl.seek(0);
+</script></body></html>

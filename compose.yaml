@@ -25,10 +25,12 @@ services:
       AGENT_RUNTIME_DATABASE_URL: postgresql+psycopg://agent_runtime:agent_runtime@postgres:5432/agent_runtime
       AGENT_RUNTIME_TELEMETRY_BACKEND: local
       AGENT_RUNTIME_TELEMETRY_LOCAL_PATH: /var/lib/agent-runtime/telemetry
+      AGENT_RUNTIME_CORS_ORIGINS: '["http://localhost:3100","http://127.0.0.1:3100"]'
     volumes:
       - telemetry-data:/var/lib/agent-runtime/telemetry
-    ports:
+    ports: !override
       - "8000:8000"
+      - "8100:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -41,10 +43,8 @@ services:
   frontend:
     build:
       context: ./frontend
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
-    ports:
-      - "3000:3000"
+    ports: !override
+      - "3100:3000"
     depends_on:
       backend:
         condition: service_healthy

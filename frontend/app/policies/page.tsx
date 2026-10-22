@@ -1,3 +1,3 @@
-import { PoliciesWorkspace } from "@/components/policies-workspace";
+import { ControlWorkspace } from "@/components/control-workspace";
 
-export default function PoliciesPage() { return <PoliciesWorkspace />; }
+export default function PoliciesPage() { return <ControlWorkspace tab="policies" />; }

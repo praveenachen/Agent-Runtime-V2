@@ -1,3 +1,3 @@
-import { ApprovalsWorkspace } from "@/components/approvals-workspace";
+import { ControlWorkspace } from "@/components/control-workspace";
 
-export default function ApprovalsPage() { return <ApprovalsWorkspace />; }
+export default function ApprovalsPage() { return <ControlWorkspace tab="approvals" />; }

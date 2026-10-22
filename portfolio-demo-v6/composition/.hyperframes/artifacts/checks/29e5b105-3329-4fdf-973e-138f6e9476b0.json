@@ -1,0 +1,299 @@
+{
+  "ok": true,
+  "strict": false,
+  "browserSkipped": false,
+  "lint": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 1,
+    "infoCount": 0,
+    "findings": [
+      {
+        "code": "nested_structure_needs_subcomposition",
+        "severity": "warning",
+        "message": "<div id=\"s3\"> is a timeline element that contains nested <div id=\"s3c\">. The timeline shows one row per top-level element, and the root composition is built only from sub-compositions.",
+        "selector": "#s3",
+        "dataAttributes": {},
+        "sourceFile": "C:\\Users\\ishan\\Downloads\\Agent Runtime\\portfolio-demo-v6\\composition\\index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Move <div id=\"s3\"> and its contents into a sub-composition file and mount it with data-composition-src."
+      }
+    ],
+    "filesScanned": 1
+  },
+  "runtime": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": []
+  },
+  "layout": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 1,
+    "findings": [
+      {
+        "code": "container_overflow",
+        "severity": "info",
+        "time": 3.132,
+        "selector": "#cam",
+        "message": "Element extends outside a clipping layout container.",
+        "rect": {
+          "left": 126,
+          "top": 68,
+          "right": 1794,
+          "bottom": 948.8,
+          "width": 1668,
+          "height": 880.8
+        },
+        "containerSelector": "#screen",
+        "fixHint": "Resize/reposition the child or container, or mark intentional overflow with data-layout-allow-overflow.",
+        "containerRect": {
+          "left": 265,
+          "top": 68,
+          "right": 1655,
+          "bottom": 802,
+          "width": 1390,
+          "height": 734
+        },
+        "overflow": {
+          "left": 139,
+          "right": 139,
+          "bottom": 146.8
+        },
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 126,
+          "y": 68,
+          "width": 1668,
+          "height": 880.8
+        },
+        "firstSeen": 3.132,
+        "lastSeen": 53.248,
+        "occurrences": 7,
+        "heldMs": 0,
+        "times": [
+          3.132,
+          9.397,
+          15.661,
+          21.926,
+          34.454,
+          40.719,
+          53.248
+        ]
+      }
+    ],
+    "duration": 56.38,
+    "samples": [
+      3.132,
+      9.397,
+      15.661,
+      21.926,
+      28.19,
+      34.454,
+      40.719,
+      46.983,
+      53.248
+    ],
+    "transitionSamples": [],
+    "transitionSamplesDropped": 0,
+    "tolerance": 2,
+    "totalIssueCount": 1,
+    "truncated": false
+  },
+  "motion": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "enabled": false,
+    "samples": 0
+  },
+  "contrast": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "enabled": true,
+    "samples": [
+      3.132,
+      15.661,
+      28.19,
+      40.719,
+      53.248
+    ],
+    "checked": 10,
+    "passed": 10
+  },
+  "craft": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 5,
+    "infoCount": 0,
+    "findings": [
+      {
+        "code": "first_frame_empty",
+        "severity": "warning",
+        "message": "Frame 0 shows only the background, and the first frame is the thumbnail on social players: have the title or key image already on screen at 0 s instead of entering from nothing; see references/review.md.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0
+      },
+      {
+        "code": "film_silent",
+        "severity": "warning",
+        "message": "This 56 s film has no sound source (no <audio>, no <video> with sound): add a music bed and sounds on the visible actions unless the person asked for silence; see references/sound.md.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0
+      },
+      {
+        "code": "text_below_floor",
+        "severity": "warning",
+        "message": "Type floor is 28 px (2.6% of the 1080 px short side, what a phone can read) and 6 text elements stay under it for 0.5 s or more, the smallest \"01 / 06 · Overview\" at 20 px: set reading text to at least 28 px, or put data-layout-ignore on text that is texture rather than reading; see references/look.md.",
+        "text": "01 / 06 · Overview",
+        "selector": "#cp0 > div:nth-of-type(1)",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 240,
+          "y": 872.77,
+          "width": 304,
+          "height": 26
+        },
+        "time": 0.873,
+        "times": [
+          0.873,
+          9.23,
+          17.213,
+          32.431,
+          39.915,
+          46.027
+        ],
+        "fontPx": 20,
+        "floorPx": 28,
+        "seconds": 7.983,
+        "elements": [
+          {
+            "selector": "#cp0 > div:nth-of-type(1)",
+            "text": "01 / 06 · Overview",
+            "fontPx": 20,
+            "time": 0.873,
+            "seconds": 7.983
+          },
+          {
+            "selector": "#cp1 > div:nth-of-type(1)",
+            "text": "02 / 06 · Runs",
+            "fontPx": 20,
+            "time": 9.23,
+            "seconds": 7.485
+          },
+          {
+            "selector": "#cp2 > div:nth-of-type(1)",
+            "text": "03 / 06 · Run detail",
+            "fontPx": 20,
+            "time": 17.213,
+            "seconds": 14.719
+          },
+          {
+            "selector": "#cp3 > div:nth-of-type(1)",
+            "text": "04 / 06 · Policies",
+            "fontPx": 20,
+            "time": 32.431,
+            "seconds": 7.11
+          },
+          {
+            "selector": "#cp4 > div:nth-of-type(1)",
+            "text": "05 / 06 · Approvals",
+            "fontPx": 20,
+            "time": 39.915,
+            "seconds": 5.489
+          },
+          {
+            "selector": "#cp5 > div:nth-of-type(1)",
+            "text": "06 / 06 · Compare runs",
+            "fontPx": 20,
+            "time": 46.027,
+            "seconds": 8.981
+          }
+        ]
+      },
+      {
+        "code": "line_unread",
+        "severity": "warning",
+        "message": "The film's last line \"Agent Runtime\" (2 words) is on screen 1.31 s (±0.01 s), under the 2.00 s a closing line needs: hold it about 0.5 s + 0.3 s a word and at least 2 s before the film ends; see references/motion.md.",
+        "text": "Agent Runtime",
+        "selector": "#s3-n",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 591.27,
+          "y": 437.11,
+          "width": 737.46,
+          "height": 134
+        },
+        "time": 55.071,
+        "words": 2,
+        "seconds": 1.313,
+        "floorSeconds": 2
+      },
+      {
+        "code": "line_unread",
+        "severity": "warning",
+        "message": "The film's last line \"Debug the decisions, not just the code.\" (7 words) is on screen 1.11 s (±0.01 s), under the 2.00 s a closing line needs: hold it about 0.5 s + 0.3 s a word and at least 2 s before the film ends; see references/motion.md.",
+        "text": "Debug the decisions, not just the code.",
+        "selector": "#s3-t",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 580.86,
+          "y": 582.97,
+          "width": 758.2799999999999,
+          "height": 51
+        },
+        "time": 55.273,
+        "words": 7,
+        "seconds": 1.111,
+        "floorSeconds": 2
+      }
+    ],
+    "enabled": true,
+    "step": 0.125,
+    "samples": 452
+  },
+  "hdr": {
+    "autoPromotion": null,
+    "inspection": "available"
+  },
+  "snapshots": {
+    "enabled": false,
+    "files": [],
+    "times": [],
+    "findingFiles": []
+  }
+}

@@ -3,15 +3,17 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-import { RunStatus } from "@/components/run-status";
 import { DiagnosisPanel } from "@/components/diagnosis-panel";
-import { Icon } from "@/components/ui/icon";
+import { RunGraph, collapseRetries, isErrorNode, nodeVisual } from "@/components/run-graph";
+import { RunStatus } from "@/components/run-status";
+import { CopyButton, humanize, workflowVisual } from "@/components/run-widgets";
+import { Icon, type IconName } from "@/components/ui/icon";
 import {
   fetchRun,
   formatDuration,
-  type GraphEdge,
   type GraphNode,
   type RunDetail as RunDetailType,
+  type SilverEvent,
 } from "@/lib/api";
 import { graphNodeDisplayName, runDetailDisplayName, semanticLabelForType } from "@/lib/run-display";
 
@@ -20,9 +22,16 @@ type State =
   | { kind: "error"; message: string }
   | { kind: "ready"; run: RunDetailType };
 
+type EventsTab = "events" | "llm" | "tool" | "raw";
+
+const clock = new Intl.DateTimeFormat("en", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+const startedFormat = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+
 export function RunDetail({ runId }: { runId: string }) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const [reload, setReload] = useState(0);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [tab, setTab] = useState<EventsTab>("events");
   useEffect(() => {
     const controller = new AbortController();
     fetchRun(runId, controller.signal)
@@ -34,64 +43,127 @@ export function RunDetail({ runId }: { runId: string }) {
   }, [runId, reload]);
   const retry = () => { setState({ kind: "loading" }); setReload((value) => value + 1); };
 
+  const run = state.kind === "ready" ? state.run : null;
+  const nodes = useMemo(() => {
+    if (!run) return [];
+    const eventAttributes = new Map(run.events.map((event) => [event.span_id, { ...event.attributes, ...event.semantic_attributes }]));
+    return run.graph.nodes.map((node) => ({ ...node, semantic_attributes: { ...(eventAttributes.get(node.span_id) ?? {}), ...node.semantic_attributes } }));
+  }, [run]);
+
   if (state.kind === "loading") {
     return <div className="detail-skeleton" aria-label="Loading run"><div className="skeleton-title" /><div className="skeleton-metrics" /><div className="skeleton-graph" /></div>;
   }
-  if (state.kind === "error") {
-    return <section className="state-panel" role="alert"><span className="state-icon danger">!</span><h2>Run unavailable</h2><p>{state.message}</p><div className="state-actions"><button className="button-secondary" onClick={retry} type="button">Try again</button><Link className="button-ghost" href="/runs">Back to runs</Link></div></section>;
+  if (state.kind === "error" || !run) {
+    return <section className="state-panel" role="alert"><span className="state-icon danger">!</span><h2>Run unavailable</h2><p>{state.kind === "error" ? state.message : ""}</p><div className="state-actions"><button className="button-secondary" onClick={retry} type="button">Try again</button><Link className="button-ghost" href="/runs">Back to runs</Link></div></section>;
   }
 
-  const run = state.run;
-  const title = runDetailDisplayName(run);
+  const edges = run.graph.edges;
+  const collapsed = collapseRetries(nodes, edges);
+  const selectNode = (nodeId: string) => setSelectedId(collapsed.owner.get(nodeId) ?? nodeId);
+  const openRaw = () => { setTab("raw"); window.setTimeout(() => document.getElementById("run-events")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0); };
+
   return <>
-    <header className="run-detail-heading"><div><Link className="back-link" href="/runs">Runs <span>›</span> <b>{run.external_run_id ?? run.run_id}</b></Link><div className="heading-line"><h1>{title}</h1><RunStatus status={run.status} /></div><p className="run-id mono">Logical run {run.external_run_id ?? run.run_id}</p></div><div className="run-heading-side"><div className="run-actions"><Link className="button-secondary" href={`/compare?original=${encodeURIComponent(run.run_id)}`}><Icon name="compare" /> Compare</Link><a className="button-ghost" href="#raw-events"><Icon name="activity" /> View raw events</a></div></div></header>
-    <section className="run-identity-strip" aria-label="Run identity"><div><span>Workflow / version</span><strong>{run.workflow_name ?? "Workflow not recorded"}</strong><small>{run.workflow_version ?? "—"}</small></div><div><span>Environment</span><strong>{run.environment ?? "—"}</strong></div><div><span>OTel traces</span><strong>{run.trace_ids.length}</strong><small>{run.trace_ids.length === 1 ? run.trace_id.slice(0, 12) : "Original identities preserved"}</small></div><div><span>Started</span><strong>{new Date(run.started_at).toLocaleString()}</strong><small>{formatDuration(run.metrics.total_duration_ms)}</small></div></section>
-    <section className="detail-metrics" aria-label="Run metrics">
-      <CompactMetric label="Duration" value={formatDuration(run.metrics.total_duration_ms)} />
-      <CompactMetric label="Steps" value={String(run.metrics.step_count)} />
-      <CompactMetric label="Tool / LLM" value={`${run.metrics.tool_call_count} / ${run.metrics.llm_call_count}`} />
-      <CompactMetric label="Retries" value={String(run.metrics.retry_count)} warn={run.metrics.retry_count > 0} />
-      <CompactMetric label="Tokens" value={run.metrics.total_tokens == null ? "—" : run.metrics.total_tokens.toLocaleString()} />
-      <CompactMetric label="Cost" value={run.metrics.estimated_cost == null ? "—" : `$${run.metrics.estimated_cost.toFixed(4)}`} />
+    <RunHeader onRaw={openRaw} run={run} />
+    <section className="rd-card rd-graph-card">
+      <header className="rd-card-heading"><div><h2>Execution graph</h2><p>Recorded parent/child structure, left to right. Click a node for details.</p></div>
+        <div className="rd-legend"><span><i className="ok" /> Success</span><span><i className="err" /> Failed</span><span><i className="tool" /> Tool call</span><span><i className="llm" /> LLM / agent</span><span><i className="decision" /> Decision / approval</span></div></header>
+      <RunGraph edges={edges} nodes={nodes} onSelect={setSelectedId} selectedId={selectedId} />
+      {selectedId && <NodeDetail members={collapsed.groups.get(selectedId) ?? nodes.filter((node) => node.id === selectedId)} onClose={() => setSelectedId(null)} start={Date.parse(run.started_at)} />}
     </section>
-    <ExecutionGraph nodes={run.graph.nodes} edges={run.graph.edges} />
-    <div className="detail-grid"><Timeline run={run} /><DiagnosisPanel runId={run.run_id} /></div>
-    <details className="raw-panel" id="raw-events"><summary><span>Raw normalized events</span><small>{run.events.length} Silver records · secondary detail</small></summary><pre>{JSON.stringify(run.events, null, 2)}</pre></details>
+    <div className="rd-layout">
+      <div className="rd-main">
+        <DiagnosisPanel runId={run.run_id} />
+        <EventsPanel nodes={nodes} onTab={setTab} run={run} tab={tab} />
+      </div>
+      <aside className="rd-side">
+        <MetricsCard run={run} />
+        <StepList nodes={nodes} onSelect={selectNode} selectedId={selectedId} owner={(id) => collapsed.owner.get(id) ?? id} run={run} />
+      </aside>
+    </div>
   </>;
 }
 
-function ExecutionGraph({ nodes, edges }: { nodes: GraphNode[]; edges: GraphEdge[] }) {
-  const [selectedId, setSelectedId] = useState(nodes[0]?.id ?? "");
-  const columns = useMemo(() => {
-    const grouped = new Map<number, GraphNode[]>();
-    nodes.forEach((node) => grouped.set(node.depth, [...(grouped.get(node.depth) ?? []), node]));
-    return [...grouped.entries()].sort(([a], [b]) => a - b);
-  }, [nodes]);
-  const semanticEdges = edges.filter((edge) => edge.type !== "parent_child");
-  const incoming = (node: GraphNode) => edges.filter((edge) => edge.target === node.id);
-  const selected = nodes.find((node) => node.id === selectedId) ?? nodes[0];
-  return <section className="graph-card">
-    <header className="section-heading"><div><p className="eyebrow">Execution graph</p><h2>Logical workflow topology</h2><p className="section-copy">Member traces share one view, while parent edges remain within their original OTel trace. The timeline preserves cross-trace timestamp order.</p></div><div className="graph-legend"><span><i className="legend-line" /> OTel parent</span><span><i className="legend-line semantic" /> declared semantic</span><span><i className="legend-dot" /> concurrent</span></div></header>
-    <div className="graph-workspace"><div className="graph-scroll"><div className="graph-stage" style={{ gridTemplateColumns: `repeat(${Math.max(columns.length, 1)}, minmax(152px, 1fr))` }}>{columns.map(([depth, column]) => <div className="graph-column" key={depth}><span className="column-label">Depth {depth}</span>{column.sort((a, b) => a.lane - b.lane).map((node) => <button aria-label={`${semanticLabelForType(node.event_type)}: ${node.label}`} aria-pressed={selected?.id === node.id} className={`graph-node node-${node.event_type.toLowerCase()} ${selected?.id === node.id ? "selected" : ""}`} key={node.id} onClick={() => setSelectedId(node.id)} title={node.label} type="button"><div className="node-topline"><span>{semanticLabelForType(node.event_type)}</span><span>{formatDuration(node.duration_ms)}</span></div><strong>{graphNodeDisplayName(node)}</strong><div className="node-flags">{node.is_concurrent && <span>parallel</span>}{incoming(node).filter((edge) => edge.type !== "parent_child").map((edge) => <span className="semantic-flag" key={edge.id}>{edge.type.replaceAll("_", " ")}</span>)}</div></button>)}</div>)}</div></div>{selected && <aside className="node-inspector"><span className="inspector-kicker">Selected node</span><h3>{selected.label}</h3><p>{semanticLabelForType(selected.event_type)} · {selected.status}</p><dl><div><dt>Duration</dt><dd>{formatDuration(selected.duration_ms)}</dd></div><div><dt>Agent</dt><dd>{selected.agent_name ?? "Runtime"}</dd></div><div><dt>Trace</dt><dd title={selected.trace_id ?? undefined}>{selected.trace_id?.slice(0, 12) ?? "Unknown"}</dd></div><div><dt>Span</dt><dd title={selected.span_id}>{selected.span_id.slice(0, 12)}</dd></div><div><dt>Parent</dt><dd title={selected.parent_span_id ?? undefined}>{selected.parent_span_id?.slice(0, 12) ?? "Root"}</dd></div><div><dt>Depth / lane</dt><dd>{selected.depth} / {selected.lane}</dd></div></dl>{Object.keys(selected.semantic_attributes).length > 0 && <details className="node-metadata"><summary>Semantic metadata</summary><dl>{Object.entries(selected.semantic_attributes).map(([key, value]) => <div key={key}><dt>{key.replaceAll("_", " ")}</dt><dd title={metadataValue(value)}>{metadataValue(value)}</dd></div>)}</dl></details>}{selected.is_concurrent && <span className="inspector-note">Runs concurrently with another span</span>}</aside>}</div>
-    {semanticEdges.length > 0 && <footer className="edge-summary">{semanticEdges.map((edge) => <span key={edge.id}>{edge.type.replaceAll("_", " ")}: <b>{shortId(edge.source)}</b> → <b>{shortId(edge.target)}</b></span>)}</footer>}
+function shortRunId(value: string): string {
+  return value.length > 16 ? `${value.slice(0, 8)}…${value.slice(-4)}` : value;
+}
+
+function recordedAttribute(run: RunDetailType, key: string): string | null {
+  for (const event of run.events) {
+    const value = event.attributes[key] ?? event.semantic_attributes[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+function RunHeader({ run, onRaw }: { run: RunDetailType; onRaw: () => void }) {
+  const fullId = run.external_run_id ?? run.run_id; const rawTitle = runDetailDisplayName(run); const title = rawTitle.includes("_") && !rawTitle.includes(" ") ? humanize(rawTitle) : rawTitle;
+  const model = recordedAttribute(run, "agent.runtime.model.name"); const prompt = recordedAttribute(run, "agent.runtime.prompt.version");
+  const visual = workflowVisual(run.workflow_name ?? title);
+  const subtitle = [`${run.metrics.step_count} steps`, `${run.metrics.tool_call_count} tool call${run.metrics.tool_call_count === 1 ? "" : "s"}`, `${run.metrics.llm_call_count} LLM call${run.metrics.llm_call_count === 1 ? "" : "s"}`, `${run.trace_ids.length} OTel trace${run.trace_ids.length === 1 ? "" : "s"}`].join(" · ");
+  return <>
+    <header className="rd-header">
+      <div><Link className="back-link" href="/runs">Runs <span>›</span> <b>{shortRunId(fullId)}</b></Link><div className="heading-line"><h1>{title}</h1><RunStatus status={run.status} /></div><p className="rd-subtitle">{subtitle}</p></div>
+      <div className="rd-actions"><Link className="button-secondary" href={`/compare?original=${encodeURIComponent(run.run_id)}`}><Icon name="compare" /> Compare</Link><button className="button-secondary" onClick={onRaw} type="button"><Icon name="code" /> View raw events</button></div>
+    </header>
+    <section className="rd-meta" aria-label="Run identity">
+      {run.workflow_name && <div><span className={`rd-meta-icon tone-${visual.tone}`}><Icon name={visual.icon} /></span><div><small>Workflow</small><strong>{humanize(run.workflow_name)}</strong>{run.workflow_version && <em>Version {run.workflow_version}</em>}</div></div>}
+      {run.environment && <div><span className="rd-meta-icon plain"><Icon name="layers" /></span><div><small>Environment</small><strong><i className="rd-dot" />{humanize(run.environment)}</strong></div></div>}
+      {model && <div><span className="rd-meta-icon plain"><Icon name="spark" /></span><div><small>Model</small><strong>{model}</strong></div></div>}
+      {prompt && <div><span className="rd-meta-icon plain"><Icon name="book" /></span><div><small>Prompt version</small><strong>{prompt}</strong></div></div>}
+      <div><span className="rd-meta-icon plain"><Icon name="calendar" /></span><div><small>Started</small><strong>{startedFormat.format(Date.parse(run.started_at))}</strong><em>Duration {formatDuration(run.metrics.total_duration_ms)}</em></div></div>
+      <div><span className="rd-meta-icon plain"><Icon name="copy" /></span><div><small>Run ID</small><strong className="mono rd-run-id" title={fullId}>{shortRunId(fullId)}<CopyButton value={fullId} /></strong></div></div>
+    </section>
+  </>;
+}
+
+function NodeDetail({ members, start, onClose }: { members: GraphNode[]; start: number; onClose: () => void }) {
+  const node = members[0]; const attributes = Object.entries(node.semantic_attributes).filter(([, value]) => value !== null && value !== undefined && value !== "" && typeof value !== "object").slice(0, 12);
+  return <div className="rd-node-detail">
+    <header><div><strong>{graphNodeDisplayName(node)}</strong><span>{semanticLabelForType(node.event_type)} · {node.status.toLowerCase() === "unset" ? "ok" : node.status.toLowerCase()}{members.length > 1 ? ` · ${members.length} retry attempts` : ""}</span></div><button aria-label="Close details" onClick={onClose} type="button"><Icon name="x" /></button></header>
+    <dl><div><dt>Duration</dt><dd>{formatDuration(members.reduce((sum, member) => sum + member.duration_ms, 0))}</dd></div><div><dt>Offset</dt><dd>+{formatDuration(Date.parse(node.started_at) - start)}</dd></div><div><dt>Agent</dt><dd>{node.agent_name ?? "—"}</dd></div><div><dt>Span</dt><dd className="mono" title={node.span_id}>{node.span_id.slice(0, 12)}</dd></div></dl>
+    {attributes.length > 0 && <details><summary>Recorded metadata</summary><dl className="rd-attrs">{attributes.map(([key, value]) => <div key={key}><dt>{key.replaceAll("_", " ")}</dt><dd title={String(value)}>{String(value)}</dd></div>)}</dl></details>}
+  </div>;
+}
+
+function MetricsCard({ run }: { run: RunDetailType }) {
+  const m = run.metrics;
+  const cards: Array<{ icon: IconName; tone: string; label: string; value: string; note?: string }> = [
+    { icon: "bolt", tone: "blue", label: "Duration", value: formatDuration(m.total_duration_ms) },
+    { icon: "tool", tone: "amber", label: "Tool calls", value: String(m.tool_call_count), note: m.tool_latency_ms ? `${formatDuration(m.tool_latency_ms)} in tools` : undefined },
+    { icon: "spark", tone: "purple", label: "LLM calls", value: String(m.llm_call_count) },
+    { icon: "activity", tone: m.retry_count ? "red" : "green", label: "Retries", value: String(m.retry_count), note: m.retry_count ? undefined : "None recorded" },
+  ];
+  if (m.total_tokens !== null) cards.push({ icon: "layers", tone: "blue", label: "Total tokens", value: m.total_tokens.toLocaleString(), note: m.input_tokens !== null && m.output_tokens !== null ? `${m.input_tokens.toLocaleString()} in · ${m.output_tokens.toLocaleString()} out` : undefined });
+  if (m.estimated_cost !== null) cards.push({ icon: "database", tone: "green", label: "Cost", value: `$${m.estimated_cost.toFixed(4)}` });
+  if (m.approval_wait_ms > 0) cards.push({ icon: "approval", tone: "amber", label: "Approval wait", value: formatDuration(m.approval_wait_ms) });
+  if (m.repeated_transition_count > 0) cards.push({ icon: "compare", tone: "amber", label: "Repeated transitions", value: `${m.repeated_transition_count}×` });
+  if (m.error_count > 0) cards.push({ icon: "alert", tone: "red", label: "Errors", value: String(m.error_count) });
+  return <section className="rd-card rd-metrics"><header className="rd-card-heading"><h2>Run metrics</h2></header><div className="rd-metric-grid">{cards.slice(0, 8).map((card) => <article className={`tone-${card.tone}`} key={card.label}><span className="rd-metric-icon"><Icon name={card.icon} /></span><div><small>{card.label}</small><strong>{card.value}</strong>{card.note && <em>{card.note}</em>}</div></article>)}</div></section>;
+}
+
+function StepList({ nodes, run, selectedId, onSelect, owner }: { nodes: GraphNode[]; run: RunDetailType; selectedId: string | null; onSelect: (id: string) => void; owner: (id: string) => string }) {
+  const steps = [...nodes].filter((node) => !(node.event_type.toUpperCase() === "RUN" && !node.parent_span_id)).sort((a, b) => Date.parse(a.started_at) - Date.parse(b.started_at));
+  return <section className="rd-card rd-steps"><header className="rd-card-heading"><h2>Step list</h2><span className="rd-count">{steps.length} steps · {formatDuration(run.metrics.total_duration_ms)}</span></header>
+    <ol>{steps.map((node) => { const visual = nodeVisual(node); const error = isErrorNode(node);
+      return <li key={node.id}><button className={`${error ? "is-error" : ""} ${selectedId === owner(node.id) ? "selected" : ""}`} onClick={() => onSelect(node.id)} type="button"><span className={`rd-step-icon tone-${visual.tone}`}><Icon name={visual.icon} /></span><span className="rd-step-text"><strong>{graphNodeDisplayName(node)}</strong><small>{clock.format(Date.parse(node.started_at))} · {semanticLabelForType(node.event_type)}</small></span><time>{formatDuration(node.duration_ms)}</time></button></li>; })}</ol></section>;
+}
+
+const DETAIL_KEYS = ["agent.runtime.tool.name", "agent.runtime.tool.operation", "relay.operation", "relay.outcome", "agent.runtime.model.name", "error.code"];
+
+function eventDetail(event: SilverEvent): string {
+  const attributes = { ...event.attributes, ...event.semantic_attributes };
+  return DETAIL_KEYS.flatMap((key) => attributes[key] !== undefined && attributes[key] !== "" ? [`${key.split(".").at(-1)}: ${String(attributes[key])}`] : []).join(" · ") || "—";
+}
+
+function EventsPanel({ run, nodes, tab, onTab }: { run: RunDetailType; nodes: GraphNode[]; tab: EventsTab; onTab: (tab: EventsTab) => void }) {
+  const names = new Map(nodes.map((node) => [node.span_id, graphNodeDisplayName(node)]));
+  const events = [...run.events].sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
+  const llm = events.filter((event) => event.event_type === "LLM_CALL"); const tool = events.filter((event) => event.event_type === "TOOL_CALL");
+  const shown = tab === "llm" ? llm : tab === "tool" ? tool : events;
+  const tabs: Array<[EventsTab, string]> = [["events", `Events (${events.length})`], ["llm", `LLM calls (${llm.length})`], ["tool", `Tool calls (${tool.length})`], ["raw", "Raw events"]];
+  return <section className="rd-card rd-events" id="run-events">
+    <div className="rd-tabs" role="tablist">{tabs.map(([key, label]) => <button aria-selected={tab === key} className={tab === key ? "active" : ""} key={key} onClick={() => onTab(key)} role="tab" type="button">{label}</button>)}</div>
+    {tab === "raw" ? <pre id="raw-events">{JSON.stringify(run.events, null, 2)}</pre> : shown.length === 0 ? <p className="diagnosis-muted rd-empty">No {tab === "llm" ? "LLM calls" : "tool calls"} were recorded for this run.</p> :
+      <div className="overview-table-scroll"><table className="rd-event-table"><thead><tr><th>Time</th><th>Type</th><th>Step</th><th>Status</th><th>Duration</th><th>Details</th></tr></thead><tbody>{shown.map((event) => <tr className={event.event_type === "ERROR" || event.status.toLowerCase() === "error" ? "is-error" : ""} key={event.event_id}><td className="mono">{clock.format(Date.parse(event.timestamp))}</td><td>{semanticLabelForType(event.event_type)}</td><td>{names.get(event.span_id) ?? "—"}</td><td>{event.status.toLowerCase() === "unset" ? "ok" : event.status.toLowerCase()}</td><td>{formatDuration(event.duration_ms)}</td><td className="rd-detail-cell" title={eventDetail(event)}>{eventDetail(event)}</td></tr>)}</tbody></table></div>}
   </section>;
-}
-
-function Timeline({ run }: { run: RunDetailType }) {
-  const start = new Date(run.started_at).getTime();
-  return <section className="timeline-card"><header className="section-heading"><div><p className="eyebrow">Timeline</p><h2>Steps and events</h2></div><span className="subtle">Execution time</span></header><ol className="timeline">{run.graph.nodes.map((node) => <li key={node.id}><span className={`timeline-mark mark-${node.event_type.toLowerCase()}`} /><div><strong>{node.label}</strong><small>{node.event_type.replaceAll("_", " ")} · +{formatDuration(new Date(node.started_at).getTime() - start)}</small></div><time>{formatDuration(node.duration_ms)}</time></li>)}</ol></section>;
-}
-
-function CompactMetric({ label, value, warn = false }: { label: string; value: string; warn?: boolean }) {
-  return <article className="compact-metric"><span>{label}</span><strong className={warn ? "warning-text" : ""}>{value}</strong></article>;
-}
-
-function shortId(value: string) {
-  return value.split(":").at(-1)?.slice(0, 8) ?? value;
-}
-
-function metadataValue(value: unknown): string {
-  if (value === null || value === undefined || value === "") return "—";
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value);
 }

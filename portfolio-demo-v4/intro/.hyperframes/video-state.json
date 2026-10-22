@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "historyId": "0ce9105a-fc8a-43a3-9e27-bb175db466a0",
+  "currentRevision": null,
+  "pendingChanges": false,
+  "files": {
+    "AGENTS.md": {
+      "hash": "f987aad4480b7e5995cbf9c6c3de3e760bda7221a64f3b6dcb019a0766898b44",
+      "content": "C:\\Users\\ishan\\.cache\\hyperframes\\history\\0ce9105a-fc8a-43a3-9e27-bb175db466a0\\blobs\\f9\\f987aad4480b7e5995cbf9c6c3de3e760bda7221a64f3b6dcb019a0766898b44"
+    },
+    "CLAUDE.md": {
+      "hash": "f987aad4480b7e5995cbf9c6c3de3e760bda7221a64f3b6dcb019a0766898b44",
+      "content": "C:\\Users\\ishan\\.cache\\hyperframes\\history\\0ce9105a-fc8a-43a3-9e27-bb175db466a0\\blobs\\f9\\f987aad4480b7e5995cbf9c6c3de3e760bda7221a64f3b6dcb019a0766898b44"
+    },
+    "hyperframes.json": {
+      "hash": "3af6ecb4d7f8c0cf28a50880f71291f27406c4548e5db2ea2d57430abd99e0e1",
+      "content": "C:\\Users\\ishan\\.cache\\hyperframes\\history\\0ce9105a-fc8a-43a3-9e27-bb175db466a0\\blobs\\3a\\3af6ecb4d7f8c0cf28a50880f71291f27406c4548e5db2ea2d57430abd99e0e1"
+    },
+    "index.html": {
+      "hash": "4a390e400678b71ffdcb92531842e2d484415f9f95c392baaf578acf8f290aff",
+      "content": "C:\\Users\\ishan\\.cache\\hyperframes\\history\\0ce9105a-fc8a-43a3-9e27-bb175db466a0\\blobs\\4a\\4a390e400678b71ffdcb92531842e2d484415f9f95c392baaf578acf8f290aff"
+    },
+    "meta.json": {
+      "hash": "32f46e012093011e9035a56aaf3cc600f98695ac90f21947d5371506f5bc8820",
+      "content": "C:\\Users\\ishan\\.cache\\hyperframes\\history\\0ce9105a-fc8a-43a3-9e27-bb175db466a0\\blobs\\32\\32f46e012093011e9035a56aaf3cc600f98695ac90f21947d5371506f5bc8820"
+    },
+    "package.json": {
+      "hash": "6109fd9474ea35f94180debd5b1638896e1820f77c4948aea5b52d67df4e2a91",
+      "content": "C:\\Users\\ishan\\.cache\\hyperframes\\history\\0ce9105a-fc8a-43a3-9e27-bb175db466a0\\blobs\\61\\6109fd9474ea35f94180debd5b1638896e1820f77c4948aea5b52d67df4e2a91"
+    }
+  },
+  "revisions": {},
+  "checks": {
+    "latest": null,
+    "revisions": {},
+    "unversioned": []
+  },
+  "snapshots": {
+    "latest": null,
+    "revisions": {},
+    "unversioned": []
+  },
+  "renders": {
+    "latest": {
+      "id": "a10175ea-816b-4c7d-986e-3883023317f8",
+      "completedAt": 1792610263632,
+      "output": "C:\\Users\\ishan\\Downloads\\Agent Runtime\\portfolio-demo-v4\\intro.mp4",
+      "status": "completed",
+      "revision": null
+    },
+    "retainedRevisions": []
+  },
+  "pendingArtifactCleanup": []
+}

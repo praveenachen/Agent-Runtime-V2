@@ -157,13 +157,34 @@ export type Approval = {
   context_hash: string | null; expires_at: string | null;
 };
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
+export type HealthResponse = {
+  status: "ok";
+  service: "agent-runtime-api";
+  version: string;
+  environment: string;
+};
 
+// Defaults to the same-origin Next.js proxy (see next.config.ts); an explicit NEXT_PUBLIC_API_URL still overrides it.
+const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "/api-proxy").replace(/\/$/, "");
+
+const RUNS_PAGE_SIZE = 200; // backend maximum per page
+
+// The runs endpoint has no project filter, so page through the full history; callers scope by project afterwards.
 export async function fetchRuns(signal?: AbortSignal): Promise<RunSummary[]> {
-  const response = await fetch(`${API_URL}/api/v1/runs?limit=100`, { signal });
-  if (!response.ok) throw new Error(`The runs API returned ${response.status}.`);
-  const payload = (await response.json()) as { items: RunSummary[] };
-  return payload.items;
+  const runs: RunSummary[] = [];
+  for (;;) {
+    const response = await fetch(`${API_URL}/api/v1/runs?limit=${RUNS_PAGE_SIZE}&offset=${runs.length}`, { signal });
+    if (!response.ok) throw new Error(`The runs API returned ${response.status}.`);
+    const page = (await response.json()) as { items: RunSummary[]; total?: number };
+    runs.push(...page.items);
+    if (page.items.length < RUNS_PAGE_SIZE || (page.total !== undefined && runs.length >= page.total)) return runs;
+  }
+}
+
+export async function fetchHealth(signal?: AbortSignal): Promise<HealthResponse> {
+  const response = await fetch(`${API_URL}/api/v1/health`, { signal });
+  if (!response.ok) throw new Error(`Health returned ${response.status}.`);
+  return (await response.json()) as HealthResponse;
 }
 
 export async function fetchRun(runId: string, signal?: AbortSignal): Promise<RunDetail> {

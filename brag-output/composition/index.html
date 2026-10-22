@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      :root { --bg: #05070c; --border: #243148; --text: #edf2fa; --muted: #92a2bb; --blue: #8ab4ff; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); }
+      #root { position: relative; width: 1920px; height: 1080px; background: radial-gradient(1200px 700px at 50% 42%, #0e1627 0%, #05070c 70%); font-family: Inter, "Segoe UI", Arial, sans-serif; color: var(--text); overflow: hidden; }
+      .scene { position: absolute; inset: 0; }
+      .center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+      .grid { position: absolute; left: -80px; top: -80px; width: 2080px; height: 1240px; background-image: linear-gradient(rgba(138, 180, 255, 0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(138, 180, 255, 0.07) 1px, transparent 1px); background-size: 80px 80px; -webkit-mask-image: radial-gradient(closest-side at 50% 50%, #000 20%, transparent 100%); mask-image: radial-gradient(closest-side at 50% 50%, #000 20%, transparent 100%); }
+      .mark { width: 150px; height: 150px; border-radius: 38px; border: 5px solid var(--blue); display: flex; align-items: center; justify-content: center; font-family: "JetBrains Mono", Consolas, monospace; font-size: 78px; font-weight: 600; color: var(--blue); background: rgba(138, 180, 255, 0.07); box-shadow: 0 0 80px rgba(138, 180, 255, 0.25); }
+      .name { font-size: 150px; font-weight: 700; letter-spacing: -0.04em; line-height: 1; margin-top: 40px; }
+      .tagline { font-size: 46px; font-weight: 500; color: var(--text); margin-top: 34px; letter-spacing: -0.015em; }
+      .sub { font-family: "JetBrains Mono", Consolas, monospace; font-size: 28px; font-weight: 500; color: var(--muted); margin-top: 34px; }
+      .words { font-family: "JetBrains Mono", Consolas, monospace; font-size: 30px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--blue); margin-top: 44px; }
+
+      .glow { position: absolute; left: 140px; top: 10px; width: 1640px; height: 940px; border-radius: 50%; background: radial-gradient(closest-side, rgba(138, 180, 255, 0.14), rgba(138, 180, 255, 0)); }
+      .frame { position: absolute; left: 180px; top: 36px; width: 1560px; height: 885px; border-radius: 16px; overflow: hidden; background: #0b101a; border: 2px solid var(--border); box-shadow: 0 40px 100px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(138, 180, 255, 0.12); }
+      .cam { position: absolute; left: 0; top: 0; width: 1560px; height: 885px; transform-origin: 0 0; }
+      .cam video { position: absolute; left: 0; top: 0; width: 1560px; height: 885px; object-fit: cover; }
+      .veil { position: absolute; inset: 0; background: #0b101a; opacity: 0; }
+      .cap { position: absolute; left: 180px; top: 946px; width: 1340px; }
+      .eyebrow { font-family: "JetBrains Mono", Consolas, monospace; font-size: 22px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--blue); }
+      .cap-l { font-size: 42px; font-weight: 600; letter-spacing: -0.025em; line-height: 1.15; margin-top: 12px; white-space: nowrap; }
+      .progress { position: absolute; left: 1566px; top: 1012px; width: 174px; height: 6px; }
+      .pb { position: absolute; top: 0; width: 24px; height: 6px; border-radius: 3px; background: #243148; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="67.86" data-width="1920" data-height="1080">
+
+      <div id="s1" class="scene clip" data-start="0" data-duration="5.5" data-track-index="0">
+        <div id="g1" class="grid"></div>
+        <div class="center">
+          <div id="s1-m" class="mark">&gt;_</div>
+          <div id="s1-n" class="name">Agent Runtime</div>
+          <div id="s1-t" class="tagline">Observing, diagnosing, and comparing AI agent runs.</div>
+          <div id="s1-s" class="sub">Execution infrastructure for reliable AI workflows.</div>
+        </div>
+      </div>
+
+      <div id="s2" class="scene clip" data-start="5.5" data-duration="57.86" data-track-index="0">
+        <div id="glow" class="glow"></div>
+        <div id="frame" class="frame">
+          <div id="cam" class="cam">
+          <video id="v0" class="clip" src="assets/clips/overview.mp4" muted playsinline data-start="5.5" data-duration="10.63" data-track-index="2"></video>
+          <video id="v1" class="clip" src="assets/clips/runs.mp4" muted playsinline data-start="16.13" data-duration="11.9" data-track-index="3"></video>
+          <video id="v2" class="clip" src="assets/clips/detail.mp4" muted playsinline data-start="28.03" data-duration="8.5" data-track-index="4"></video>
+          <video id="v3" class="clip" src="assets/clips/approvals.mp4" muted playsinline data-start="36.53" data-duration="8.6" data-track-index="5"></video>
+          <video id="v4" class="clip" src="assets/clips/policies.mp4" muted playsinline data-start="45.13" data-duration="8.3" data-track-index="6"></video>
+          <video id="v5" class="clip" src="assets/clips/compare.mp4" muted playsinline data-start="53.43" data-duration="9.93" data-track-index="7"></video>
+          </div>
+          <div id="veil" class="veil"></div>
+        </div>
+        <div id="c0" class="cap"><div class="eyebrow">01 / 06 &nbsp;·&nbsp; Overview</div><div class="cap-l">Runs, success rate, latency and tool calls at a glance.</div></div>
+        <div id="c1" class="cap"><div class="eyebrow">02 / 06 &nbsp;·&nbsp; Runs</div><div class="cap-l">Inspect and filter agent executions across your project.</div></div>
+        <div id="c2" class="cap"><div class="eyebrow">03 / 06 &nbsp;·&nbsp; Run detail</div><div class="cap-l">An execution graph and a diagnosis for every failed run.</div></div>
+        <div id="c3" class="cap"><div class="eyebrow">04 / 06 &nbsp;·&nbsp; Approvals</div><div class="cap-l">Review consequential actions before they execute.</div></div>
+        <div id="c4" class="cap"><div class="eyebrow">05 / 06 &nbsp;·&nbsp; Policies</div><div class="cap-l">Configure policies to control when approvals are required.</div></div>
+        <div id="c5" class="cap"><div class="eyebrow">06 / 06 &nbsp;·&nbsp; Compare runs</div><div class="cap-l">Compare an original run with a replay.</div></div>
+        <div id="progress" class="progress">
+          <div id="p0" class="pb" style="left:0px"></div>
+          <div id="p1" class="pb" style="left:30px"></div>
+          <div id="p2" class="pb" style="left:60px"></div>
+          <div id="p3" class="pb" style="left:90px"></div>
+          <div id="p4" class="pb" style="left:120px"></div>
+          <div id="p5" class="pb" style="left:150px"></div>
+        </div>
+      </div>
+
+      <div id="s3" class="scene clip" data-start="63.36" data-duration="4.5" data-track-index="0">
+        <div id="g3" class="grid"></div>
+        <div class="center">
+          <div id="s3-m" class="mark">&gt;_</div>
+          <div id="s3-n" class="name">Agent Runtime</div>
+          <div id="s3-t" class="tagline">Runs standalone. Relay can delegate approved work to it.</div>
+          <div id="s3-w" class="words">Observe &nbsp;·&nbsp; Diagnose &nbsp;·&nbsp; Approve &nbsp;·&nbsp; Compare</div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      // Intro
+      tl.fromTo("#g1", { x: 0 }, { x: -80, duration: 5.5, ease: "none" }, 0);
+      tl.fromTo("#s1-m", { opacity: 0, scale: 0.88 }, { opacity: 1, scale: 1, duration: 0.7, ease: "back.out(1.5)" }, 0.3);
+      tl.fromTo("#s1-n", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 0.8);
+      tl.fromTo("#s1-t", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.55, ease: "power3.out" }, 1.6);
+      tl.fromTo("#s1-s", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 2.5);
+      tl.to("#s1", { opacity: 0, duration: 0.5, ease: "power1.in" }, 5.5 - 0.5);
+
+      // Product
+      tl.fromTo("#frame", { opacity: 0, y: 50, scale: 0.97 }, { opacity: 1, y: 0, scale: 1, duration: 0.7, ease: "power3.out" }, 5.5 + 0.05);
+      tl.fromTo("#glow", { opacity: 0 }, { opacity: 1, duration: 0.9 }, 5.5 + 0.1);
+      tl.fromTo("#progress", { opacity: 0 }, { opacity: 1, duration: 0.5 }, 5.5 + 0.5);
+      tl.fromTo("#c0", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 5.95);
+      tl.to("#c0", { opacity: 0, duration: 0.25, ease: "power1.in" }, 15.83);
+      tl.to("#veil", { opacity: 1, duration: 0.14, ease: "power1.in" }, 15.99);
+      tl.to("#veil", { opacity: 0, duration: 0.22, ease: "power1.out" }, 16.13);
+      tl.to("#p0", { backgroundColor: "#8ab4ff", duration: 0.3, ease: "power2.out" }, 5.5);
+      tl.fromTo("#c1", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 16.33);
+      tl.to("#c1", { opacity: 0, duration: 0.25, ease: "power1.in" }, 27.73);
+      tl.to("#veil", { opacity: 1, duration: 0.14, ease: "power1.in" }, 27.89);
+      tl.to("#veil", { opacity: 0, duration: 0.22, ease: "power1.out" }, 28.03);
+      tl.to("#p1", { backgroundColor: "#8ab4ff", duration: 0.3, ease: "power2.out" }, 16.13);
+      tl.fromTo("#c2", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 28.23);
+      tl.to("#c2", { opacity: 0, duration: 0.25, ease: "power1.in" }, 36.23);
+      tl.to("#veil", { opacity: 1, duration: 0.14, ease: "power1.in" }, 36.39);
+      tl.to("#veil", { opacity: 0, duration: 0.22, ease: "power1.out" }, 36.53);
+      tl.to("#p2", { backgroundColor: "#8ab4ff", duration: 0.3, ease: "power2.out" }, 28.03);
+      tl.fromTo("#c3", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 36.73);
+      tl.to("#c3", { opacity: 0, duration: 0.25, ease: "power1.in" }, 44.83);
+      tl.to("#veil", { opacity: 1, duration: 0.14, ease: "power1.in" }, 44.99);
+      tl.to("#veil", { opacity: 0, duration: 0.22, ease: "power1.out" }, 45.13);
+      tl.to("#p3", { backgroundColor: "#8ab4ff", duration: 0.3, ease: "power2.out" }, 36.53);
+      tl.fromTo("#c4", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 45.33);
+      tl.to("#c4", { opacity: 0, duration: 0.25, ease: "power1.in" }, 53.13);
+      tl.to("#veil", { opacity: 1, duration: 0.14, ease: "power1.in" }, 53.29);
+      tl.to("#veil", { opacity: 0, duration: 0.22, ease: "power1.out" }, 53.43);
+      tl.to("#p4", { backgroundColor: "#8ab4ff", duration: 0.3, ease: "power2.out" }, 45.13);
+      tl.fromTo("#c5", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 53.63);
+      tl.to("#p5", { backgroundColor: "#8ab4ff", duration: 0.3, ease: "power2.out" }, 53.43);
+      tl.to("#cam", { x: -39.0, y: -331.9, scale: 1.75, duration: 1.1, ease: "power2.inOut" }, 54.68);
+      tl.to("#cam", { x: -148.2, y: -663.8, scale: 1.75, duration: 1.0, ease: "power2.inOut" }, 57.48);
+      tl.to("#cam", { x: -1560.0, y: -354.0, scale: 2.0, duration: 1.1, ease: "power2.inOut" }, 59.48);
+      tl.to("#cam", { x: 0.0, y: 0.0, scale: 1.0, duration: 0.9, ease: "power2.inOut" }, 62.08);
+      tl.set("#cam", { x: 0, y: 0, scale: 1 }, 63.36);
+      tl.to("#s2", { opacity: 0, duration: 0.5, ease: "power1.in" }, 63.36 - 0.5);
+
+      // Closing
+      tl.fromTo("#g3", { x: 0 }, { x: -80, duration: 4.5, ease: "none" }, 63.36);
+      tl.fromTo("#s3-m", { opacity: 0, scale: 0.88 }, { opacity: 1, scale: 1, duration: 0.6, ease: "back.out(1.5)" }, 63.36 + 0.2);
+      tl.fromTo("#s3-n", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.55, ease: "power3.out" }, 63.36 + 0.5);
+      tl.fromTo("#s3-t", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 63.36 + 1.1);
+      tl.fromTo("#s3-w", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 63.36 + 1.8);
+      tl.to("#s3", { opacity: 0, duration: 0.6, ease: "power1.in" }, 67.86 - 0.6);
+
+      window.__timelines["main"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

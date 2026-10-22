@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      :root { --bg: #060b14; --text: #edf2fa; --muted: #92a2bb; --blue: #8ab4ff; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); }
+      #root { position: relative; width: 1920px; height: 1080px; background: radial-gradient(1400px 800px at 50% 40%, #101b30 0%, #060b14 70%); font-family: Inter, "Segoe UI", Arial, sans-serif; color: var(--text); overflow: hidden; }
+      .grid { position: absolute; left: -80px; top: -80px; width: 2080px; height: 1240px; background-image: linear-gradient(rgba(138,180,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(138,180,255,0.05) 1px, transparent 1px); background-size: 80px 80px; -webkit-mask-image: radial-gradient(closest-side at 50% 45%, #000 25%, transparent 100%); mask-image: radial-gradient(closest-side at 50% 45%, #000 25%, transparent 100%); }
+      .scene { position: absolute; inset: 0; }
+      .center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+      .name { font-size: 110px; font-weight: 700; letter-spacing: -0.04em; line-height: 1; }
+      .tag { font-size: 42px; font-weight: 500; margin-top: 26px; letter-spacing: -0.015em; color: var(--muted); }
+      #s3 { background: radial-gradient(1400px 800px at 50% 50%, #101b30 0%, #060b14 70%); opacity: 0; }
+
+      #lap { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 50% 40%; opacity: 0; }
+      #lid { position: absolute; left: 240px; top: 46px; width: 1440px; height: 769px; border-radius: 22px 22px 8px 8px; background: linear-gradient(180deg, #1a2538 0%, #0d1524 100%); box-shadow: 0 36px 100px rgba(0,0,0,0.55), 0 0 0 1px rgba(138,180,255,0.28), 0 0 90px rgba(138,180,255,0.10); }
+      #lid:before { content: ""; position: absolute; left: 50%; top: 8px; width: 7px; height: 7px; margin-left: -3px; border-radius: 50%; background: #2b3a55; }
+      #base { position: absolute; left: 150px; top: 811px; width: 1620px; height: 24px; border-radius: 0 0 32px 32px; background: linear-gradient(180deg, #232f45 0%, #101828 100%); box-shadow: 0 16px 36px rgba(0,0,0,0.6); }
+      #base:before { content: ""; position: absolute; left: 50%; top: 0; width: 260px; height: 9px; margin-left: -130px; border-radius: 0 0 12px 12px; background: #0a111e; }
+      #screen { position: absolute; left: 25px; top: 22px; width: 1390px; height: 734px; border-radius: 6px; overflow: hidden; background: #0a1422; }
+      #cam { position: absolute; left: 0; top: 0; width: 1390px; height: 734px; transform-origin: 0 0; }
+      #cam video { position: absolute; left: 0; top: 0; width: 1390px; height: 734px; }
+      .rip { position: absolute; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 18px rgba(138,180,255,0.8); opacity: 0; }
+
+      .capwrap { position: absolute; left: 160px; top: 892px; width: 1600px; height: 120px; }
+      .cap { position: absolute; left: 0; top: 0; width: 1600px; height: 120px; display: flex; align-items: center; justify-content: center; gap: 20px; opacity: 0; }
+      .cap .acc { flex: none; width: 5px; height: 38px; border-radius: 3px; background: var(--blue); }
+      .cap .ct { font-size: 36px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.2; color: var(--text); }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="64.22" data-width="1920" data-height="1080">
+      <div id="gridlayer" class="grid"></div>
+
+      <div id="lap">
+        <div id="lid">
+          <div id="screen">
+            <div id="cam">
+              <video id="v" src="assets/edited.mp4" muted playsinline data-start="0" data-duration="62.72" data-track-index="2"></video>
+          <div id="rp0" class="rip" style="left:6.00%;top:16.20%"></div>
+          <div id="rp1" class="rip" style="left:47.60%;top:30.70%"></div>
+          <div id="rp2" class="rip" style="left:6.00%;top:21.00%"></div>
+          <div id="rp3" class="rip" style="left:6.00%;top:25.90%"></div>
+          <div id="rp4" class="rip" style="left:6.00%;top:30.60%"></div>
+            </div>
+          </div>
+        </div>
+        <div id="base"></div>
+      </div>
+
+      <div id="capwrap" class="capwrap">
+        <div id="cp0" class="cap"><span class="acc"></span><span class="ct">Observe production agent behavior at a glance.</span></div>
+        <div id="cp1" class="cap"><span class="acc"></span><span class="ct">Drill into failed executions.</span></div>
+        <div id="cp2" class="cap"><span class="acc"></span><span class="ct">Trace the path, retries, and failure point.</span></div>
+        <div id="cp3" class="cap"><span class="acc"></span><span class="ct">Repeated execution detected.</span></div>
+        <div id="cp4" class="cap"><span class="acc"></span><span class="ct">Turn execution evidence into a diagnosis.</span></div>
+        <div id="cp5" class="cap"><span class="acc"></span><span class="ct">Convert failure patterns into deterministic guardrails.</span></div>
+        <div id="cp6" class="cap"><span class="acc"></span><span class="ct">Gate consequential actions before they execute.</span></div>
+        <div id="cp7" class="cap"><span class="acc"></span><span class="ct">Compare behavior — not just outputs.</span></div>
+        <div id="cp8" class="cap"><span class="acc"></span><span class="ct">30s → 11s  ·  5 → 3 tool calls  ·  Failed → Succeeded</span></div>
+      </div>
+
+      <div id="s3" class="scene clip" data-start="62.72" data-duration="1.5" data-track-index="0">
+        <div class="center" id="s3c">
+          <div id="s3-n" class="name">Agent Runtime</div>
+          <div id="s3-t" class="tag">Debug the decisions, not just the code.</div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      const T1 = 62.72;
+      tl.fromTo("#gridlayer", { x: 0 }, { x: -80, duration: 64.22, ease: "none" }, 0);
+      tl.fromTo("#lap", { opacity: 0, y: 30, scale: 0.98 }, { opacity: 1, y: 0, scale: 1, duration: 0.7, ease: "power3.out" }, 0);
+
+      tl.fromTo("#cp0", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 0.70);
+      tl.to("#cp0", { opacity: 0, duration: 0.35, ease: "power1.in" }, 8.08);
+      tl.fromTo("#cp1", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 10.10);
+      tl.to("#cp1", { opacity: 0, duration: 0.35, ease: "power1.in" }, 17.58);
+      tl.fromTo("#cp2", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 17.94);
+      tl.to("#cp2", { opacity: 0, duration: 0.35, ease: "power1.in" }, 20.11);
+      tl.fromTo("#cp3", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 20.46);
+      tl.to("#cp3", { opacity: 0, duration: 0.35, ease: "power1.in" }, 22.11);
+      tl.fromTo("#cp4", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 22.96);
+      tl.to("#cp4", { opacity: 0, duration: 0.35, ease: "power1.in" }, 30.50);
+      tl.fromTo("#cp5", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 33.37);
+      tl.to("#cp5", { opacity: 0, duration: 0.35, ease: "power1.in" }, 40.51);
+      tl.fromTo("#cp6", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 41.93);
+      tl.to("#cp6", { opacity: 0, duration: 0.35, ease: "power1.in" }, 46.37);
+      tl.fromTo("#cp7", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 47.71);
+      tl.to("#cp7", { opacity: 0, duration: 0.35, ease: "power1.in" }, 57.74);
+      tl.fromTo("#cp8", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 58.09);
+      tl.to("#cp8", { opacity: 0, duration: 0.35, ease: "power1.in" }, 62.27);
+
+      tl.to("#cam", { x: -111.2, y: 0.0, scale: 1.08, duration: 1.8, ease: "power2.inOut" }, 0.26);
+      tl.to("#cam", { x: 0.0, y: 0.0, scale: 1.0, duration: 2.4, ease: "power2.inOut" }, 1.85);
+      tl.to("#cam", { x: -249.8, y: -83.4, scale: 1.18, duration: 1.8, ease: "power2.inOut" }, 18.76);
+      tl.to("#cam", { x: 0.0, y: 0.0, scale: 1.0, duration: 1.3, ease: "power2.inOut" }, 21.16);
+      tl.to("#cam", { x: -272.4, y: -29.4, scale: 1.2, duration: 1.4, ease: "power2.inOut" }, 33.88);
+      tl.to("#cam", { x: 0.0, y: 0.0, scale: 1.0, duration: 1.4, ease: "power2.inOut" }, 37.81);
+      tl.to("#cam", { x: -166.8, y: -60.5, scale: 1.12, duration: 1.3, ease: "power2.inOut" }, 43.04);
+      tl.to("#cam", { x: 0.0, y: 0.0, scale: 1.0, duration: 1.2, ease: "power2.inOut" }, 46.11);
+      tl.to("#cam", { x: -118.1, y: -33.8, scale: 1.3, duration: 1.9, ease: "power2.inOut" }, 47.77);
+      tl.to("#cam", { x: 0.0, y: 0.0, scale: 1.0, duration: 1.7, ease: "power2.inOut" }, 53.76);
+
+      tl.fromTo("#rp0", { scale: 0.3, opacity: 0.9 }, { scale: 1.5, opacity: 0, duration: 0.7, ease: "power2.out", immediateRender: false }, 9.81);
+      tl.fromTo("#rp1", { scale: 0.3, opacity: 0.9 }, { scale: 1.5, opacity: 0, duration: 0.7, ease: "power2.out", immediateRender: false }, 16.89);
+      tl.fromTo("#rp2", { scale: 0.3, opacity: 0.9 }, { scale: 1.5, opacity: 0, duration: 0.7, ease: "power2.out", immediateRender: false }, 33.10);
+      tl.fromTo("#rp3", { scale: 0.3, opacity: 0.9 }, { scale: 1.5, opacity: 0, duration: 0.7, ease: "power2.out", immediateRender: false }, 41.01);
+      tl.fromTo("#rp4", { scale: 0.3, opacity: 0.9 }, { scale: 1.5, opacity: 0, duration: 0.7, ease: "power2.out", immediateRender: false }, 46.90);
+
+      tl.to("#lap", { opacity: 0, y: 24, scale: 0.97, duration: 0.5, ease: "power2.in" }, T1 - 0.05);
+      tl.to("#capwrap", { opacity: 0, duration: 0.3 }, T1 - 0.1);
+      tl.to("#s3", { opacity: 1, duration: 0.3 }, T1);
+      tl.fromTo("#s3-n", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out" }, T1 + 0.1);
+      tl.fromTo("#s3-t", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out" }, T1 + 0.3);
+
+      window.__timelines["main"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

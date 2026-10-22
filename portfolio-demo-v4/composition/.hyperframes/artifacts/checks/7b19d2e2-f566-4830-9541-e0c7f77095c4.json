@@ -1,0 +1,160 @@
+{
+  "ok": true,
+  "strict": false,
+  "browserSkipped": false,
+  "lint": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 2,
+    "infoCount": 0,
+    "findings": [
+      {
+        "code": "overlapping_gsap_tweens",
+        "severity": "warning",
+        "message": "GSAP tweens overlap on \"#cam\" for x, y, scale between 1.85s and 2.06s.",
+        "selector": "#cam",
+        "dataAttributes": {},
+        "sourceFile": "C:\\Users\\ishan\\Downloads\\Agent Runtime\\portfolio-demo-v4\\composition\\index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Shorten the earlier tween, move the later tween, or add `overwrite: \"auto\"`."
+      },
+      {
+        "code": "nested_structure_needs_subcomposition",
+        "severity": "warning",
+        "message": "<div id=\"s3\"> is a timeline element that contains nested <div id=\"s3c\">. The timeline shows one row per top-level element, and the root composition is built only from sub-compositions.",
+        "selector": "#s3",
+        "dataAttributes": {},
+        "sourceFile": "C:\\Users\\ishan\\Downloads\\Agent Runtime\\portfolio-demo-v4\\composition\\index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Move <div id=\"s3\"> and its contents into a sub-composition file and mount it with data-composition-src."
+      }
+    ],
+    "filesScanned": 1
+  },
+  "runtime": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": []
+  },
+  "layout": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 1,
+    "findings": [
+      {
+        "code": "container_overflow",
+        "severity": "info",
+        "time": 3.568,
+        "selector": "#cam",
+        "message": "Element extends outside a clipping layout container.",
+        "rect": {
+          "left": 254.73,
+          "top": 68,
+          "right": 1655.02,
+          "bottom": 807.43,
+          "width": 1400.29,
+          "height": 739.43
+        },
+        "containerSelector": "#screen",
+        "fixHint": "Resize/reposition the child or container, or mark intentional overflow with data-layout-allow-overflow.",
+        "containerRect": {
+          "left": 265,
+          "top": 68,
+          "right": 1655,
+          "bottom": 802,
+          "width": 1390,
+          "height": 734
+        },
+        "overflow": {
+          "left": 10.27,
+          "bottom": 5.43
+        },
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 254.73,
+          "y": 68,
+          "width": 1400.29,
+          "height": 739.43
+        },
+        "firstSeen": 3.568,
+        "lastSeen": 53.517,
+        "occurrences": 3,
+        "heldMs": 0,
+        "times": [
+          3.568,
+          46.381,
+          53.517
+        ]
+      }
+    ],
+    "duration": 64.22,
+    "samples": [
+      3.568,
+      10.703,
+      17.839,
+      24.974,
+      32.11,
+      39.246,
+      46.381,
+      53.517,
+      60.652
+    ],
+    "transitionSamples": [],
+    "transitionSamplesDropped": 0,
+    "tolerance": 2,
+    "totalIssueCount": 1,
+    "truncated": false
+  },
+  "motion": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "enabled": false,
+    "samples": 0
+  },
+  "contrast": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "enabled": true,
+    "samples": [
+      3.568,
+      17.839,
+      32.11,
+      46.381,
+      60.652
+    ],
+    "checked": 4,
+    "passed": 4
+  },
+  "hdr": {
+    "autoPromotion": null,
+    "inspection": "available"
+  },
+  "snapshots": {
+    "enabled": false,
+    "files": [],
+    "times": [],
+    "findingFiles": []
+  }
+}
